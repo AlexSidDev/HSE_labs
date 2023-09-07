@@ -6,10 +6,8 @@
 #include <string>
 #include <sstream>
 #include <vector>
-#include <set>
 #include <unordered_set>
 #include <chrono>
-#include <climits>
 
 
 void greedy_search()
@@ -19,13 +17,14 @@ void greedy_search()
     if (!input_file.is_open())
     {
         std::cout << "File wasn't open\n";
+        return;
     }
 
     std::string line;
     char e;
     int verts, edges;
     int src_vert, tgt_vert;
-    int need_paint, color;
+    int color;
 
     while (std::getline(input_file, line))
     {
@@ -36,7 +35,6 @@ void greedy_search()
             break;
         }
     }
-    need_paint = verts;
     std::vector<std::unordered_set<int>> adjacency_list;
     adjacency_list.resize(verts);
 
@@ -93,10 +91,11 @@ void greedy_search()
 void smaller_degree_last_with_remove()
 {
     auto start = std::chrono::high_resolution_clock::now();
-    std::ifstream input_file("anna.col.txt");
+    std::ifstream input_file("graphs/myciel3.col.txt");
     if (!input_file.is_open())
     {
         std::cout << "File wasn't open\n";
+        return;
     }
 
     std::string line;
@@ -196,6 +195,19 @@ void smaller_degree_last_with_remove()
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
 
+    for (std::unordered_set<int> color_class : color_classes)
+    {
+        if (color_class.empty())
+            continue;
+        std::cout << '{';
+        for (int vert : color_class)
+        {
+            std::cout << vert + 1 << ',';
+        }
+        std::cout << "}\t";
+    }
+
+    std::cout << "\n";
     std::cout << "Time taken by function: " << duration.count() / 1000000.0 << " seconds" << std::endl;
 }
 
