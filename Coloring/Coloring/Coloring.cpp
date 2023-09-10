@@ -9,140 +9,19 @@
 #include <unordered_set>
 #include <chrono>
 
-
-void greedy_search()
+int* sort_verts(int verts, const std::vector<std::unordered_set<int>>& adjacency_list, std::vector<int>& pows)
 {
-    auto start = std::chrono::high_resolution_clock::now();
-    std::ifstream input_file("myciel3.col.txt");
-    if (!input_file.is_open())
-    {
-        std::cout << "File wasn't open\n";
-        return;
-    }
-
-    std::string line;
-    char e;
-    int verts, edges;
-    int src_vert, tgt_vert;
-    int color;
-
-    while (std::getline(input_file, line))
-    {
-        if (line[0] == 'p')
-        {
-            std::istringstream iss(line.substr(7));
-            iss >> verts >> edges;
-            break;
-        }
-    }
-    std::vector<std::unordered_set<int>> adjacency_list;
-    adjacency_list.resize(verts);
-
-    while (std::getline(input_file, line))
-    {
-        std::istringstream iss(line);
-        iss >> e >> src_vert >> tgt_vert;
-        adjacency_list[src_vert - 1].insert(tgt_vert - 1);
-        adjacency_list[tgt_vert - 1].insert(src_vert - 1);
-    }
-
-
-    std::vector<std::unordered_set<int>> color_classes;
-    color_classes.resize(verts);
-    int num_colors = 1;
-    bool is_find;
-    for (int cur_ver = 0; cur_ver < verts; cur_ver++)
-    {
-        color = 0;
-        for (std::unordered_set<int> color_class : color_classes)
-        {
-            is_find = false;
-            if (color_class.empty())
-                continue;
-            for (int neighbour : adjacency_list[cur_ver])
-            {
-                if (color_class.find(neighbour) != color_class.end())
-                {
-                    is_find = true;
-                    break;
-                }
-            }
-
-            if (is_find)
-                color++;
-            else
-                break;
-
-        }
-        color_classes[color].insert(cur_ver);
-        if (color + 1 > num_colors)
-            num_colors = color + 1;
-
-    }
-
-    std::cout << "Num colors: " << num_colors << "\n";
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-
-    std::cout << "Time taken by function: " << duration.count() / 1000000.0 << " seconds" << std::endl;
-}
-
-
-void smaller_degree_last_with_remove()
-{
-    auto start = std::chrono::high_resolution_clock::now();
-    std::ifstream input_file("graphs/myciel3.col.txt");
-    if (!input_file.is_open())
-    {
-        std::cout << "File wasn't open\n";
-        return;
-    }
-
-    std::string line;
-    char e;
-    int verts, edges;
-    int src_vert, tgt_vert;
-    int need_paint, color;
-
-    while (std::getline(input_file, line))
-    {
-        if (line[0] == 'p')
-        {
-            std::istringstream iss(line.substr(7));
-            iss >> verts >> edges;
-            break;
-        }
-    }
-
-    std::vector<std::unordered_set<int>> adjacency_list;
-    adjacency_list.resize(verts);
-
-    int* pows = new int[verts];
-    for (int i = 0; i < verts; i++)
-    {
-        pows[i] = 0;
-    }
-
-    while (std::getline(input_file, line))
-    {
-        std::istringstream iss(line);
-        iss >> e >> src_vert >> tgt_vert;
-        adjacency_list[src_vert - 1].insert(tgt_vert - 1);
-        adjacency_list[tgt_vert - 1].insert(src_vert - 1);
-        pows[src_vert - 1]++;
-        pows[tgt_vert - 1]++;
-    }
-
     int* sorted_verts = new int[verts];
     int min_pow;
     int min_ind;
+    bool is_need_random_change;
     for (int i = 0; i < verts; i++)
     {
         min_ind = 0;
         min_pow = INT_MAX;
         for (int j = 0; j < verts; j++)
         {
-            if (pows[j] < min_pow && pows[j]!= -1)
+            if (pows[j] < min_pow)
             {
                 min_ind = j;
                 min_pow = pows[j];
@@ -155,6 +34,52 @@ void smaller_degree_last_with_remove()
         pows[min_ind] = INT_MAX;
         sorted_verts[verts - i - 1] = min_ind;
     }
+    return sorted_verts;
+}
+
+void read_graph(std::ifstream& input_file, int& verts, int& edges, std::vector<std::unordered_set<int>>& adjacency_list, std::vector<int>& pows)
+{
+    std::string line;
+    char e;
+    int src_vert, tgt_vert;
+    int color;
+    std::string p, edge;
+
+    while (std::getline(input_file, line))
+    {
+        if (line[0] == 'p')
+        {
+            std::istringstream iss(line);
+            iss >> p >> edge >> verts >> edges;
+            break;
+        }
+    }
+    pows.resize(verts);
+    adjacency_list.resize(verts);
+
+    while (std::getline(input_file, line))
+    {
+        std::istringstream iss(line);
+        iss >> e >> src_vert >> tgt_vert;
+        adjacency_list[src_vert - 1].insert(tgt_vert - 1);
+        adjacency_list[tgt_vert - 1].insert(src_vert - 1);
+        pows[src_vert - 1]++;
+        pows[tgt_vert - 1]++;
+    }
+}
+
+void smaller_degree_last_with_remove(std::ifstream& input_file)
+{
+    
+    int verts, edges;
+    int src_vert, tgt_vert;
+    int need_paint, color;
+    std::vector<std::unordered_set<int>> adjacency_list;
+    std::vector<int> pows;
+
+    read_graph(input_file, verts, edges, adjacency_list, pows);
+
+    int* sorted_verts = sort_verts(verts, adjacency_list, pows);
 
     std::vector<std::unordered_set<int>> color_classes;
     color_classes.resize(verts);
@@ -188,12 +113,9 @@ void smaller_degree_last_with_remove()
         color_classes[color].insert(cur_ver);
         if (color + 1 > num_colors)
             num_colors = color + 1;
-
     }
 
     std::cout << "Num colors: " << num_colors << "\n";
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
 
     for (std::unordered_set<int> color_class : color_classes)
     {
@@ -206,14 +128,25 @@ void smaller_degree_last_with_remove()
         }
         std::cout << "}\t";
     }
-
     std::cout << "\n";
-    std::cout << "Time taken by function: " << duration.count() / 1000000.0 << " seconds" << std::endl;
 }
 
 int main()
 {
-    smaller_degree_last_with_remove();
+    auto start = std::chrono::high_resolution_clock::now();
+
+    std::ifstream input_file("graphs/myciel3.col.txt");
+    if (!input_file.is_open())
+    {
+        std::cout << "File wasn't open\n";
+        return 1;
+    }
+
+    smaller_degree_last_with_remove(input_file);
+
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+    std::cout << "Time taken by function: " << duration.count() / 1000000.0 << " seconds" << std::endl;
 }
 
 

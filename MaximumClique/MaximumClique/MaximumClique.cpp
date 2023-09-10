@@ -11,6 +11,40 @@
 #include <chrono>
 #include <memory>
 
+int* sort_verts(int verts, const std::vector<std::unordered_set<int>>& adjacency_list, std::vector<int>& pows)
+{
+    int* sorted_verts = new int[verts];
+    int min_pow;
+    int min_ind;
+    bool is_need_random_change;
+    for (int i = 0; i < verts; i++)
+    {
+        min_ind = 0;
+        min_pow = INT_MAX;
+        for (int j = 0; j < verts; j++)
+        {
+            if (pows[j] == min_pow)
+            {
+                is_need_random_change = std::rand() % 3 > 0;
+                if (is_need_random_change)
+                    min_ind = j;
+            }
+            else if (pows[j] < min_pow)
+            {
+                min_ind = j;
+                min_pow = pows[j];
+            }
+        }
+        for (int neighbour : adjacency_list[min_ind])
+        {
+            pows[neighbour]--;
+        }
+        pows[min_ind] = INT_MAX;
+        sorted_verts[verts - i - 1] = min_ind;
+    }
+    return sorted_verts;
+}
+
 void read_graph(std::ifstream& input_file, int& verts, int& edges, std::vector<std::unordered_set<int>>& adjacency_list, std::vector<int>& pows)
 {
     std::string line;
@@ -44,18 +78,10 @@ void read_graph(std::ifstream& input_file, int& verts, int& edges, std::vector<s
     }
 }
 
-void greedy_search_random_start(std::string file)
+void greedy_search_random_start(std::ifstream& input_file)
 {
     auto start = std::chrono::high_resolution_clock::now();
-    std::srand(std::time(0));
-
-    std::ifstream input_file(file);
-    if (!input_file.is_open())
-    {
-        std::cout << "File wasn't open\n";
-        return;
-    }
-
+    
     std::vector<std::unordered_set<int>> adjacency_list;
     int verts = 0, edges = 0;
     int color;
@@ -63,70 +89,57 @@ void greedy_search_random_start(std::string file)
 
     read_graph(input_file, verts, edges, adjacency_list, pows);
 
-    int* sorted_verts = new int[verts];
-    int min_pow;
-    int min_ind;
-    for (int i = 0; i < verts; i++)
-    {
-        min_ind = 0;
-        min_pow = INT_MAX;
-        for (int j = 0; j < verts; j++)
-        {
-            if (pows[j] < min_pow)
-            {
-                min_ind = j;
-                min_pow = pows[j];
-            }
-        }
-        for (int neighbour : adjacency_list[min_ind])
-        {
-            pows[neighbour]--;
-        }
-        pows[min_ind] = INT_MAX;
-        sorted_verts[verts - i - 1] = min_ind;
-    }
+    int* sorted_verts = sort_verts(verts, adjacency_list, pows);
 
-    int cur_ver, last_vert;
+    int cur_ver, last_vert, global_last_vert = -1;
     bool is_dense;
-    std::unordered_set<int> clique;
-    std::unordered_set<int> best_clique;
-    clique.reserve(verts);
+    std::list<int> clique;
+    std::list<int> best_clique;
+    //clique.resize(verts);
 
     last_vert = sorted_verts[0];
-    clique.insert(last_vert);
+    clique.push_back(last_vert);
 
     int j = 0;
     const int max_iters = 10000;
 
     while (j < max_iters)
     {
-        for (int i = 0; i < verts; i++)
+        while (true)
         {
-            cur_ver = sorted_verts[i];
-            is_dense = true;
-            if (adjacency_list[last_vert].find(cur_ver) != adjacency_list[last_vert].end())
+            for (int i = global_last_vert + 1; i < verts; i++)
             {
-                for (int verts_in_clique : clique)
+                cur_ver = sorted_verts[i];
+                is_dense = true;
+                if (adjacency_list[last_vert].find(cur_ver) != adjacency_list[last_vert].end())
                 {
-                    is_dense &= adjacency_list[verts_in_clique].find(cur_ver) != adjacency_list[verts_in_clique].end();
-                }
-                if (is_dense)
-                {
-                    clique.insert(cur_ver);
-                    last_vert = cur_ver;
+                    for (int verts_in_clique : clique)
+                    {
+                        is_dense &= adjacency_list[verts_in_clique].find(cur_ver) != adjacency_list[verts_in_clique].end();
+                    }
+                    if (is_dense)
+                    {
+                        clique.push_back(cur_ver);
+                        last_vert = cur_ver;
+                        global_last_vert = i;
+                    }
                 }
             }
+            if (clique.size() > best_clique.size())
+            {
+                best_clique = clique;
+            }
+            if (clique.empty())
+                break;
+            clique.pop_front();
         }
-        if (clique.size() > best_clique.size())
-        {
-            best_clique = clique;
-        }
-
+        global_last_vert = -1;
         clique.clear();
-        clique.reserve(verts);
+        //clique.resize(verts);
         last_vert = sorted_verts[std::rand() % verts];
-        clique.insert(last_vert);
+        clique.push_back(last_vert);
         j++;
+        
     }
 
     std::cout << "Largest clique: " << best_clique.size() << '\n';
@@ -138,17 +151,10 @@ void greedy_search_random_start(std::string file)
 
 }
 
-void greedy_search_random(std::string file)
+void greedy_search_random(std::ifstream& input_file)
 {
     auto start = std::chrono::high_resolution_clock::now();
-    std::srand(0);
-
-    std::ifstream input_file(file);
-    if (!input_file.is_open())
-    {
-        std::cout << "File wasn't open\n";
-        return;
-    }
+    //std::srand(0);
 
     std::vector<std::unordered_set<int>> adjacency_list;
     int verts = 0, edges = 0;
@@ -156,40 +162,19 @@ void greedy_search_random(std::string file)
 
     read_graph(input_file, verts, edges, adjacency_list, pows);
 
-    int* sorted_verts = new int[verts];
-    int min_pow;
-    int min_ind;
-    for (int i = 0; i < verts; i++)
-    {
-        min_ind = 0;
-        min_pow = INT_MAX;
-        for (int j = 0; j < verts; j++)
-        {
-            if (pows[j] < min_pow)
-            {
-                min_ind = j;
-                min_pow = pows[j];
-            }
-        }
-        for (int neighbour : adjacency_list[min_ind])
-        {
-            pows[neighbour]--;
-        }
-        pows[min_ind] = INT_MAX;
-        sorted_verts[verts - i - 1] = min_ind;
-    }
+    int* sorted_verts = sort_verts(verts, adjacency_list, pows);
 
-    int cur_ver, last_vert, last_ind = 0;
+    int cur_ver, last_vert, last_ind = 0, global_last_vert = -1;
     bool is_dense;
-    std::unordered_set<int> clique;
-    std::unordered_set<int> best_clique;
+    std::list<int> clique;
+    std::list<int> best_clique;
     
     const int candidates_num = 2;
     int* candidates = new int[candidates_num];
-    clique.reserve(verts);
+    //clique.reserve(verts);
 
     last_vert = sorted_verts[0];
-    clique.insert(last_vert);
+    clique.push_back(last_vert);
 
     int starts = 0;
     int candidate_iterations = 0;
@@ -197,49 +182,53 @@ void greedy_search_random(std::string file)
 
     while (starts < max_iters)
     {
-        for (int i = 0; i < verts; i++)
+        while (true)
         {
-            cur_ver = sorted_verts[i];
-            is_dense = true;
+            for (int i = global_last_vert + 1; i < verts; i++)
+            {
+                cur_ver = sorted_verts[i];
+                is_dense = true;
 
-            for (int verts_in_clique : clique)
-            {
-                is_dense &= adjacency_list[verts_in_clique].find(cur_ver) != adjacency_list[verts_in_clique].end();
-            }
-            if (is_dense)
-            {
-                //clique.insert(cur_ver);
-                if (candidate_iterations == 0)
+                for (int verts_in_clique : clique)
                 {
-                    last_ind = i;
+                    is_dense &= adjacency_list[verts_in_clique].find(cur_ver) != adjacency_list[verts_in_clique].end();
                 }
-                candidates[candidate_iterations] = cur_ver;
-                candidate_iterations++;
+                if (is_dense)
+                {
+                    //clique.insert(cur_ver);
+                    if (candidate_iterations == 0)
+                    {
+                        last_ind = i;
+                    }
+                    candidates[candidate_iterations] = cur_ver;
+                    candidate_iterations++;
+                }
+                if (candidate_iterations == candidates_num)
+                {
+                    last_vert = candidates[(std::rand() % candidates_num)];
+                    clique.push_back(last_vert);
+                    candidate_iterations = 0;
+                    global_last_vert = i;
+                    i = last_ind;
+                }
             }
-            if (candidate_iterations == candidates_num)
+            if (clique.size() > best_clique.size())
             {
-                last_vert = candidates[(std::rand() % candidates_num)];
-                clique.insert(last_vert);
-                candidate_iterations = 0;
-                i = last_ind;
+                best_clique = clique;
             }
-
+            if (clique.empty())
+                break;
+            clique.pop_front();
         }
-        if (clique.size() > best_clique.size())
-        {
-            best_clique = clique;
-        }
-
-        clique.clear();
-        clique.reserve(verts);
 
         //std::cout << starts << "\n";
+        global_last_vert = -1;
         starts++;
         candidate_iterations = 0;
         clique.clear();
-        clique.reserve(verts);
+        //clique.reserve(verts);
         last_vert = sorted_verts[std::rand() % verts];
-        clique.insert(last_vert);
+        clique.push_back(last_vert);
     }
 
     std::cout << "Largest clique: " << best_clique.size() << '\n';
@@ -252,9 +241,19 @@ void greedy_search_random(std::string file)
 
 int main()
 {
-    std::string file = "max_clique_txt/DIMACS_all_ascii/C125.9.clq";
-    greedy_search_random(file);
-    greedy_search_random_start(file);
+    std::string file = "max_clique_txt/DIMACS_all_ascii/brock400_2.clq";
+    std::srand(std::time(0));
+
+    std::ifstream input_file(file);
+    if (!input_file.is_open())
+    {
+        std::cout << "File wasn't open\n";
+        return 0;
+    }
+    greedy_search_random(input_file);
+
+    input_file = std::ifstream(file);
+    greedy_search_random_start(input_file);
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
