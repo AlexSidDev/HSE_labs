@@ -35,10 +35,10 @@ int* sort_verts(int verts, const std::vector<std::unordered_set<int>>& adjacency
                 min_pow = pows[j];
             }
         }
-        for (int neighbour : adjacency_list[min_ind])
-        {
-            pows[neighbour]--;
-        }
+        //for (int neighbour : adjacency_list[min_ind])
+        //{
+        //    //pows[neighbour]--;
+        //}
         pows[min_ind] = INT_MAX;
         sorted_verts[verts - i - 1] = min_ind;
     }
@@ -58,8 +58,6 @@ void read_graph(std::ifstream& input_file, int& verts, int& edges, std::vector<s
         if (line[0] == 'p')
         {
             std::istringstream iss(line);
-            
-            //std::istringstream iss(line.substr(7));
             iss >> p >> edge >> verts >> edges;
             break;
         }
@@ -71,6 +69,8 @@ void read_graph(std::ifstream& input_file, int& verts, int& edges, std::vector<s
     {
         std::istringstream iss(line);
         iss >> e >> src_vert >> tgt_vert;
+        if (tgt_vert > src_vert)
+            continue;
         adjacency_list[src_vert - 1].insert(tgt_vert - 1);
         adjacency_list[tgt_vert - 1].insert(src_vert - 1);
         pows[src_vert - 1]++;
@@ -180,6 +180,8 @@ void greedy_search_random(std::ifstream& input_file)
     int candidate_iterations = 0;
     const int max_iters = 10000;
 
+    int rand_ind = 0;
+
     while (starts < max_iters)
     {
         while (true)
@@ -222,12 +224,13 @@ void greedy_search_random(std::ifstream& input_file)
         }
 
         //std::cout << starts << "\n";
-        global_last_vert = -1;
+        
         starts++;
         candidate_iterations = 0;
         clique.clear();
-        //clique.reserve(verts);
-        last_vert = sorted_verts[std::rand() % verts];
+        rand_ind = std::rand() % verts;
+        last_vert = sorted_verts[rand_ind];
+        global_last_vert = rand_ind;
         clique.push_back(last_vert);
     }
 
@@ -241,7 +244,7 @@ void greedy_search_random(std::ifstream& input_file)
 
 int main()
 {
-    std::string file = "max_clique_txt/DIMACS_all_ascii/brock400_2.clq";
+    std::string file = "max_clique_txt/DIMACS_all_ascii/brock200_1.clq";
     std::srand(std::time(0));
 
     std::ifstream input_file(file);

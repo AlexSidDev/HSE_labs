@@ -61,6 +61,8 @@ void read_graph(std::ifstream& input_file, int& verts, int& edges, std::vector<s
     {
         std::istringstream iss(line);
         iss >> e >> src_vert >> tgt_vert;
+        if (tgt_vert < src_vert)
+            continue;
         adjacency_list[src_vert - 1].insert(tgt_vert - 1);
         adjacency_list[tgt_vert - 1].insert(src_vert - 1);
         pows[src_vert - 1]++;
@@ -68,7 +70,7 @@ void read_graph(std::ifstream& input_file, int& verts, int& edges, std::vector<s
     }
 }
 
-void smaller_degree_last_with_remove(std::ifstream& input_file)
+int smaller_degree_last_with_remove(std::ifstream& input_file)
 {
     
     int verts, edges;
@@ -81,41 +83,47 @@ void smaller_degree_last_with_remove(std::ifstream& input_file)
 
     int* sorted_verts = sort_verts(verts, adjacency_list, pows);
 
+    std::vector<int> colors_of_verts(verts, -1);
+    std::vector<bool> available_colors;
+    available_colors.reserve(verts);
+
     std::vector<std::unordered_set<int>> color_classes;
     color_classes.resize(verts);
-    int num_colors = 1;
+    int num_colors = 0;
     bool is_find;
     int cur_ver;
     for (int cur_ind = 0; cur_ind < verts; cur_ind++)
     {
         cur_ver = sorted_verts[cur_ind];
-        color = 0;
-        for (std::unordered_set<int> color_class : color_classes)
+        
+        is_find = false;
+        for (int neighbour : adjacency_list[cur_ver])
         {
-            is_find = false;
-            if (color_class.empty())
-                continue;
-            for (int neighbour : adjacency_list[cur_ver])
+            if (colors_of_verts[neighbour] != -1)
             {
-                if (color_class.find(neighbour) != color_class.end())
-                {
-                    is_find = true;
-                    break;
-                }
+                available_colors[colors_of_verts[neighbour]] = false;
             }
-
-            if (is_find)
-                color++;
-            else
-                break;
-
         }
-        color_classes[color].insert(cur_ver);
-        if (color + 1 > num_colors)
-            num_colors = color + 1;
-    }
+        for (int color = 0; color < available_colors.size(); color++)
+        {
+            if (available_colors[color] && !is_find)
+            {
+                color_classes[color].insert(cur_ver);
+                is_find = true;
+                colors_of_verts[cur_ver] = color;
+            }
+            available_colors[color] = true;
+        }
+        if (!is_find)
+        {
+            available_colors.push_back(true);
+            num_colors++;
+            color_classes[num_colors - 1].insert(cur_ver);
+            colors_of_verts[cur_ver] = num_colors - 1;
+        }
 
-    std::cout << "Num colors: " << num_colors << "\n";
+    }
+    //std::cout << "Num colors: " << num_colors << "\n";
 
     for (std::unordered_set<int> color_class : color_classes)
     {
@@ -129,24 +137,38 @@ void smaller_degree_last_with_remove(std::ifstream& input_file)
         std::cout << "}\t";
     }
     std::cout << "\n";
+
+    return num_colors;
 }
 
 int main()
 {
-    auto start = std::chrono::high_resolution_clock::now();
+    std::vector<std::string> files = { "graphs/myciel3.col.txt", "graphs/myciel7.col.txt",
+        "graphs/school1.col.txt", "graphs/school1_nsh.col.txt",
+        "graphs/anna.col.txt",
+        "graphs/miles1000.col.txt", "graphs/miles1500.col.txt",
+        "graphs/le450_5a.col.txt", "graphs/le450_15b.col.txt", 
+        "graphs/queen11_11.col.txt" };
 
-    std::ifstream input_file("graphs/myciel3.col.txt");
-    if (!input_file.is_open())
+    std::ofstream fout("color.csv");
+
+    int num_colors;
+    for (std::string file : files)
     {
-        std::cout << "File wasn't open\n";
-        return 1;
+        std::ifstream input_file(file);
+        if (!input_file.is_open())
+        {
+            std::cout << "File wasn't open\n";
+            continue;
+        }
+        auto start = std::chrono::high_resolution_clock::now();
+        num_colors = smaller_degree_last_with_remove(input_file);
+        auto stop = std::chrono::high_resolution_clock::now();
+
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+        //std::cout << "Time taken by function: " << duration.count() / 1000000.0 << " seconds" << std::endl;
+        fout << file << "; " << num_colors << "; " << duration.count() / 1000000.0 << '\n';
     }
-
-    smaller_degree_last_with_remove(input_file);
-
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-    std::cout << "Time taken by function: " << duration.count() / 1000000.0 << " seconds" << std::endl;
 }
 
 
