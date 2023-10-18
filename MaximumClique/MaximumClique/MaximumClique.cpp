@@ -11,206 +11,134 @@
 #include <chrono>
 #include <memory>
 
-int* sort_verts(int verts, const std::vector<std::unordered_set<int>>& adjacency_list, std::vector<int>& pows)
+class Graph
 {
-    int* sorted_verts = new int[verts];
-    int min_pow;
-    int min_ind;
-    bool is_need_random_change;
-    for (int i = 0; i < verts; i++)
+    int verts;
+    std::vector<int> pows;
+    std::vector<std::unordered_set<int>> adjacency_list;
+
+    int* sort_verts()
     {
-        min_ind = 0;
-        min_pow = INT_MAX;
-        for (int j = 0; j < verts; j++)
+        int* sorted_verts = new int[verts];
+        int min_pow;
+        int min_ind;
+        bool is_need_random_change;
+        for (int i = 0; i < verts; i++)
         {
-            if (pows[j] == min_pow)
-            {
-                is_need_random_change = std::rand() % 3 > 0;
-                if (is_need_random_change)
+            min_ind = 0;
+            min_pow = INT_MAX;
+            for (int j = 0; j < verts; j++)
+            {   // random changing of same-degree vertice's order
+                if (pows[j] == min_pow)
+                {
+                    is_need_random_change = std::rand() % 3 > 0;
+                    if (is_need_random_change)
+                        min_ind = j;
+                }
+                else if (pows[j] < min_pow)
+                {
                     min_ind = j;
+                    min_pow = pows[j];
+                }
             }
-            else if (pows[j] < min_pow)
+            for (int neighbour : adjacency_list[min_ind])
             {
-                min_ind = j;
-                min_pow = pows[j];
+                pows[neighbour]--;
+            }
+            pows[min_ind] = INT_MAX;
+            sorted_verts[verts - i - 1] = min_ind;
+        }
+        return sorted_verts;
+    }
+
+public:
+    Graph(std::ifstream& input_file)
+    {
+        std::string line;
+        char e;
+        int src_vert, tgt_vert;
+        int edges;
+        std::string p, edge;
+
+        verts = 0;
+        while (std::getline(input_file, line))
+        {
+            if (line[0] == 'p')
+            {
+                std::istringstream iss(line);
+                iss >> p >> edge >> verts >> edges;
+                break;
             }
         }
-        //for (int neighbour : adjacency_list[min_ind])
-        //{
-        //    //pows[neighbour]--;
-        //}
-        pows[min_ind] = INT_MAX;
-        sorted_verts[verts - i - 1] = min_ind;
-    }
-    return sorted_verts;
-}
+        pows.resize(verts);
+        adjacency_list.resize(verts);
 
-void read_graph(std::ifstream& input_file, int& verts, int& edges, std::vector<std::unordered_set<int>>& adjacency_list, std::vector<int>& pows)
-{
-    std::string line;
-    char e;
-    int src_vert, tgt_vert;
-    int color;
-    std::string p, edge;
-
-    while (std::getline(input_file, line))
-    {
-        if (line[0] == 'p')
+        while (std::getline(input_file, line))
         {
             std::istringstream iss(line);
-            iss >> p >> edge >> verts >> edges;
-            break;
+            iss >> e >> src_vert >> tgt_vert;
+            if (tgt_vert > src_vert)
+                continue;
+            adjacency_list[src_vert - 1].insert(tgt_vert - 1);
+            adjacency_list[tgt_vert - 1].insert(src_vert - 1);
+            pows[src_vert - 1]++;
+            pows[tgt_vert - 1]++;
         }
     }
-    pows.resize(verts);
-    adjacency_list.resize(verts);
 
-    while (std::getline(input_file, line))
+    bool check_clique(std::vector<int> clique, int vertex_to_insert)
     {
-        std::istringstream iss(line);
-        iss >> e >> src_vert >> tgt_vert;
-        if (tgt_vert > src_vert)
-            continue;
-        adjacency_list[src_vert - 1].insert(tgt_vert - 1);
-        adjacency_list[tgt_vert - 1].insert(src_vert - 1);
-        pows[src_vert - 1]++;
-        pows[tgt_vert - 1]++;
-    }
-}
+        bool is_dense = true;
 
-void greedy_search_random_start(std::ifstream& input_file)
-{
-    auto start = std::chrono::high_resolution_clock::now();
-    
-    std::vector<std::unordered_set<int>> adjacency_list;
-    int verts = 0, edges = 0;
-    int color;
-    std::vector<int> pows;
-
-    read_graph(input_file, verts, edges, adjacency_list, pows);
-
-    int* sorted_verts = sort_verts(verts, adjacency_list, pows);
-
-    int cur_ver, last_vert, global_last_vert = -1;
-    bool is_dense;
-    std::list<int> clique;
-    std::list<int> best_clique;
-    //clique.resize(verts);
-
-    last_vert = sorted_verts[0];
-    clique.push_back(last_vert);
-
-    int j = 0;
-    const int max_iters = 10000;
-
-    while (j < max_iters)
-    {
-        while (true)
+        for (int verts_in_clique : clique)
         {
-            for (int i = global_last_vert + 1; i < verts; i++)
-            {
-                cur_ver = sorted_verts[i];
-                is_dense = true;
-                if (adjacency_list[last_vert].find(cur_ver) != adjacency_list[last_vert].end())
-                {
-                    for (int verts_in_clique : clique)
-                    {
-                        is_dense &= adjacency_list[verts_in_clique].find(cur_ver) != adjacency_list[verts_in_clique].end();
-                    }
-                    if (is_dense)
-                    {
-                        clique.push_back(cur_ver);
-                        last_vert = cur_ver;
-                        global_last_vert = i;
-                    }
-                }
-            }
-            if (clique.size() > best_clique.size())
-            {
-                best_clique = clique;
-            }
-            if (clique.empty())
+            is_dense &= adjacency_list[verts_in_clique].find(vertex_to_insert) != adjacency_list[verts_in_clique].end();
+            if (!is_dense)
                 break;
-            clique.pop_front();
         }
-        global_last_vert = -1;
-        clique.clear();
-        //clique.resize(verts);
-        last_vert = sorted_verts[std::rand() % verts];
-        clique.push_back(last_vert);
-        j++;
-        
+        return is_dense;
     }
 
-    std::cout << "Largest clique: " << best_clique.size() << '\n';
-
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-
-    std::cout << "Time taken by function: " << duration.count() / 1000000.0 << " seconds" << std::endl;
-
-}
-
-void greedy_search_random(std::ifstream& input_file)
-{
-    auto start = std::chrono::high_resolution_clock::now();
-    //std::srand(0);
-
-    std::vector<std::unordered_set<int>> adjacency_list;
-    int verts = 0, edges = 0;
-    std::vector<int> pows;
-
-    read_graph(input_file, verts, edges, adjacency_list, pows);
-
-    int* sorted_verts = sort_verts(verts, adjacency_list, pows);
-
-    int cur_ver, last_vert, last_ind = 0, global_last_vert = -1;
-    bool is_dense;
-    std::list<int> clique;
-    std::list<int> best_clique;
-    
-    const int candidates_num = 2;
-    int* candidates = new int[candidates_num];
-    //clique.reserve(verts);
-
-    last_vert = sorted_verts[0];
-    clique.push_back(last_vert);
-
-    int starts = 0;
-    int candidate_iterations = 0;
-    const int max_iters = 10000;
-
-    int rand_ind = 0;
-
-    while (starts < max_iters)
+    int find_max_clique(int max_iters, int random_candidates)
     {
-        while (true)
+        int* sorted_verts = sort_verts();
+        int cur_ver, start_vert, last_ind = 0, global_last_index = -1;
+        bool is_dense;
+        std::vector<int> clique;
+        std::vector<int> best_clique;
+        clique.reserve(verts);
+        best_clique.reserve(verts);
+
+        int starts = 0;
+        int* candidates = new int[random_candidates];
+        int candidate_iterations = 0;
+
+        int rand_ind = 0;
+
+        while (starts < max_iters)
         {
-            for (int i = global_last_vert + 1; i < verts; i++)
+            for (int i = global_last_index + 1; i < verts; i++)
             {
                 cur_ver = sorted_verts[i];
-                is_dense = true;
-
-                for (int verts_in_clique : clique)
-                {
-                    is_dense &= adjacency_list[verts_in_clique].find(cur_ver) != adjacency_list[verts_in_clique].end();
-                }
+                if (adjacency_list[cur_ver].size() + 1 <= best_clique.size())
+                    continue;
+                is_dense = check_clique(clique, cur_ver);
                 if (is_dense)
                 {
-                    //clique.insert(cur_ver);
                     if (candidate_iterations == 0)
                     {
                         last_ind = i;
                     }
+                    
                     candidates[candidate_iterations] = cur_ver;
                     candidate_iterations++;
                 }
-                if (candidate_iterations == candidates_num)
+                if (candidate_iterations == random_candidates)
                 {
-                    last_vert = candidates[(std::rand() % candidates_num)];
-                    clique.push_back(last_vert);
+                    start_vert = candidates[(std::rand() % random_candidates)];
+                    clique.push_back(start_vert);
                     candidate_iterations = 0;
-                    global_last_vert = i;
+                    global_last_index = i;
                     i = last_ind;
                 }
             }
@@ -218,45 +146,65 @@ void greedy_search_random(std::ifstream& input_file)
             {
                 best_clique = clique;
             }
-            if (clique.empty())
-                break;
-            clique.pop_front();
-        }
 
-        //std::cout << starts << "\n";
-        
-        starts++;
-        candidate_iterations = 0;
-        clique.clear();
-        rand_ind = std::rand() % verts;
-        last_vert = sorted_verts[rand_ind];
-        global_last_vert = rand_ind;
-        clique.push_back(last_vert);
+            starts++;
+            candidate_iterations = 0;
+            clique.clear();
+            do
+            {
+                rand_ind = std::rand() % (verts / 2);
+                start_vert = sorted_verts[rand_ind];
+                global_last_index = -1;
+            } while (adjacency_list[start_vert].size() + 1 <= best_clique.size());
+
+            clique.push_back(start_vert);
+        }
+        return best_clique.size();
     }
 
-    std::cout << "Largest clique: " << best_clique.size() << '\n';
+};
 
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-
-    std::cout << "Time taken by function: " << duration.count() / 1000000.0 << " seconds" << std::endl;
-}
 
 int main()
 {
-    std::string file = "max_clique_txt/DIMACS_all_ascii/brock200_1.clq";
+    //std::string file = "max_clique_txt/DIMACS_all_ascii/brock200_1.clq";
     std::srand(std::time(0));
 
-    std::ifstream input_file(file);
-    if (!input_file.is_open())
-    {
-        std::cout << "File wasn't open\n";
-        return 0;
-    }
-    greedy_search_random(input_file);
+    std::vector<std::string> files = { 
+        "brock200_1.clq", "brock200_2.clq", "brock200_3.clq", "brock200_4.clq",
+        "brock400_1.clq", "brock400_2.clq", "brock400_3.clq", "brock400_4.clq",
+        "C125.9.clq", "gen200_p0.9_44.clq", "gen200_p0.9_55.clq",
+        "hamming8-4.clq", "johnson16-2-4.clq","johnson8-2-4.clq", "keller4.clq",
+        "MANN_a27.clq", "MANN_a9.clq",
+        "p_hat1000-1.clq", "p_hat1000-2.clq", "p_hat1500-1.clq", "p_hat300-3.clq", "p_hat500-3.clq",
+        "san1000.clq", "sanr200_0.9.clq", "sanr400_0.7.clq",
+        };
 
-    input_file = std::ifstream(file);
-    greedy_search_random_start(input_file);
+    std::ofstream fout("clique_class.csv");
+    fout << "File; Clique; Time (sec)\n";
+
+    int clique_size;
+    
+    for (std::string file : files)
+    {
+        std::ifstream input_file("max_clique_txt/DIMACS_all_ascii/" + file);
+        if (!input_file.is_open())
+        {
+            std::cout << "File wasn't open\n";
+            continue;
+        }
+        auto start = std::chrono::high_resolution_clock::now();
+        Graph graph(input_file);
+        clique_size = graph.find_max_clique(100000, 1);
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+
+        std::cout << "Largest clique: " << clique_size << '\n';
+
+        //input_file = std::ifstream(file);
+        //greedy_search_random_start(input_file);
+        fout << file << "; " << clique_size << "; " << duration.count() / 1000000.0 << '\n';
+    }
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
