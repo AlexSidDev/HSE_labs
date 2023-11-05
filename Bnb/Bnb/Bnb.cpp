@@ -19,6 +19,7 @@
 #include <list>
 #include <chrono>
 #include <memory>
+#include <algorithm>
 
 
 class MaxCliqueBnBSolver;
@@ -93,18 +94,18 @@ public:
         }
     }
 
-    int coloring(int* vertices_order, std::vector<std::unordered_set<int>>& color_classes)
+    int coloring(int* vertices_order, std::vector<std::unordered_set<int>>& color_classes, int num_verts)
     {
 
         std::vector<int> colors_of_verts(verts, -1);
         std::vector<bool> available_colors;
-        available_colors.reserve(verts);
+        available_colors.reserve(num_verts);
 
-        color_classes.resize(verts);
+        color_classes.resize(num_verts);
         int num_colors = 0;
         bool is_find;
         int cur_ver;
-        for (int cur_ind = 0; cur_ind < verts; cur_ind++)
+        for (int cur_ind = 0; cur_ind < num_verts; cur_ind++)
         {
             cur_ver = vertices_order[cur_ind];
 
@@ -142,9 +143,9 @@ public:
     {
         int cur_ver;
         bool is_find;
-        int num_sets = this->coloring(vertices_order, color_classes);
+        int num_sets = this->coloring(vertices_order, color_classes, verts);
 
-        std::vector<std::unordered_set<int>>* additional_sets = new std::vector<std::unordered_set<int>>();
+        std::vector<std::vector<int>>* additional_sets = new std::vector<std::vector<int>>();
         additional_sets->resize(verts);
 
         for (int color = 0; color < num_sets; color++)
@@ -164,15 +165,29 @@ public:
                 }
                 if (!is_find)
                 {
-                    additional_sets->at(color).insert(cur_ver);
-                    std::cout << "insertion " << cur_ver << " into " << color << '\n';
+                    additional_sets->at(color).push_back(cur_ver);
+                    //std::cout << "insertion " << cur_ver << " into " << color << '\n';
                 }
             }
         }
 
+        for (int color = 0; color < num_sets; color++)
+        {
+            std::vector<std::unordered_set<int>> divided_sets;
+            divided_sets.resize(additional_sets->at(color).size());
 
+            this->coloring(additional_sets->at(color).begin()._Ptr, divided_sets, additional_sets->at(color).size());
+            for (auto& set : divided_sets)
+            {
+                std::unordered_set<int> tmp_set;
+                tmp_set = color_classes[color];
+                tmp_set.insert(set.begin(), set.end());
 
-        return num_sets;
+                color_classes.push_back(tmp_set);
+            }
+        }
+
+        return color_classes.size();
     }
 
     bool check_clique(std::vector<int> clique, int vertex_to_insert)
