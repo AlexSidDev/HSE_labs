@@ -94,7 +94,7 @@ public:
         }
     }
 
-    int coloring(int* vertices_order, std::vector<std::unordered_set<int>>& color_classes, int num_verts)
+    int coloring(const int* vertices_order, std::vector<std::unordered_set<int>>& color_classes, int num_verts)
     {
 
         std::vector<int> colors_of_verts(verts, -1);
@@ -135,7 +135,7 @@ public:
                 colors_of_verts[cur_ver] = num_colors - 1;
             }
         }
-
+        
         return num_colors;
     }
 
@@ -144,6 +144,7 @@ public:
         int cur_ver;
         bool is_find;
         int num_sets = this->coloring(vertices_order, color_classes, verts);
+        color_classes.erase(color_classes.begin() + num_sets, color_classes.end());
 
         std::vector<std::vector<int>>* additional_sets = new std::vector<std::vector<int>>();
         additional_sets->resize(verts);
@@ -154,6 +155,8 @@ public:
             {
                 is_find = false;
                 cur_ver = vertices_order[cur_ind];
+                if (color_classes[color].find(cur_ver) != color_classes[color].end())
+                    continue;
 
                 for (int other : color_classes[color])
                 {
@@ -169,20 +172,26 @@ public:
                     //std::cout << "insertion " << cur_ver << " into " << color << '\n';
                 }
             }
+            std::cout << additional_sets->at(color).size() << ' ';
         }
-
+        std::ofstream fout("clique_debug.csv");
         for (int color = 0; color < num_sets; color++)
         {
             std::vector<std::unordered_set<int>> divided_sets;
-            divided_sets.resize(additional_sets->at(color).size());
 
             this->coloring(additional_sets->at(color).begin()._Ptr, divided_sets, additional_sets->at(color).size());
             for (auto& set : divided_sets)
             {
+                if (set.empty())
+                    continue;
                 std::unordered_set<int> tmp_set;
                 tmp_set = color_classes[color];
                 tmp_set.insert(set.begin(), set.end());
-
+                for (auto& i : tmp_set)
+                {
+                    fout << i << ' ';
+                }
+                fout << '\n';
                 color_classes.push_back(tmp_set);
             }
         }
@@ -288,7 +297,7 @@ public:
         int* verts_in_order = graph->sort_verts();
         int num_sets = graph->all_independent_sets(verts_in_order, *independent_sets);
 
-        std::cout << num_sets << '\n';
+        std::cout << "Total number of constraints: " << num_sets << '\n';
         create_problem();
     }
 
