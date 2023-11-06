@@ -22,12 +22,26 @@
 #include <algorithm>
 
 
+std::vector<int>* collection_difference(const std::vector<int>& first, const std::unordered_set<int>& second)
+{
+    std::vector<int>* diff = new std::vector<int>;
+    diff->reserve(first.size());
+    for (const int& elem : first)
+    {
+        if (second.find(elem) == second.end())
+        {
+            diff->push_back(elem);
+        }
+    }
+    return diff;
+}
+
 class MaxCliqueBnBSolver;
 
 
 class Graph
 {
-    int verts;
+    size_t verts;
     std::vector<int> pows;
     std::vector<std::unordered_set<int>> adjacency_list;
 
@@ -139,64 +153,42 @@ public:
         return num_colors;
     }
 
-    int all_independent_sets(int* vertices_order, std::vector<std::unordered_set<int>>& color_classes)
+    int all_independent_sets(int* vertices_order, std::vector<std::unordered_set<int>>& independent_sets)
     {
-        int cur_ver;
-        bool is_find;
-        int num_sets = this->coloring(vertices_order, color_classes, verts);
-        color_classes.erase(color_classes.begin() + num_sets, color_classes.end());
+        independent_sets.reserve(verts * 100);
 
-        std::vector<std::vector<int>>* additional_sets = new std::vector<std::vector<int>>();
-        additional_sets->resize(verts);
+        std::vector<int> all_verts{ vertices_order, vertices_order + verts };
 
-        for (int color = 0; color < num_sets; color++)
+        std::vector<std::vector<int>>* non_neighbourhood_sets = new std::vector<std::vector<int>>();
+        non_neighbourhood_sets->resize(verts);
+
+        for (int cur_ind = 0; cur_ind < verts; cur_ind++)
         {
-            for (int cur_ind = 0; cur_ind < verts; cur_ind++)
-            {
-                is_find = false;
-                cur_ver = vertices_order[cur_ind];
-                if (color_classes[color].find(cur_ver) != color_classes[color].end())
-                    continue;
-
-                for (int other : color_classes[color])
-                {
-                    if (adjacency_list[cur_ver].find(other) != adjacency_list[cur_ver].end())
-                    {
-                        is_find = true;
-                        break;
-                    }
-                }
-                if (!is_find)
-                {
-                    additional_sets->at(color).push_back(cur_ver);
-                    //std::cout << "insertion " << cur_ver << " into " << color << '\n';
-                }
-            }
-            std::cout << additional_sets->at(color).size() << ' ';
+            std::vector<int>* tmp_vector;
+            tmp_vector = collection_difference(all_verts, adjacency_list[cur_ind]);
+            non_neighbourhood_sets->at(cur_ind) = *tmp_vector;
         }
-        std::ofstream fout("clique_debug.csv");
-        for (int color = 0; color < num_sets; color++)
+        
+        for (int cur_ind = 0; cur_ind < verts; cur_ind++)
         {
             std::vector<std::unordered_set<int>> divided_sets;
 
-            this->coloring(additional_sets->at(color).begin()._Ptr, divided_sets, additional_sets->at(color).size());
+            this->coloring(non_neighbourhood_sets->at(cur_ind).begin()._Ptr, divided_sets, non_neighbourhood_sets->at(cur_ind).size());
             for (auto& set : divided_sets)
             {
                 if (set.empty())
                     continue;
+
                 std::unordered_set<int> tmp_set;
-                tmp_set = color_classes[color];
+                tmp_set.reserve(set.size() + 1);
+                tmp_set.insert(cur_ind);
                 tmp_set.insert(set.begin(), set.end());
-                for (auto& i : tmp_set)
-                {
-                    fout << i << ' ';
-                }
-                fout << '\n';
-                color_classes.push_back(tmp_set);
+
+                independent_sets.push_back(tmp_set);
             }
         }
 
-        return color_classes.size();
+        return independent_sets.size();
     }
 
     bool check_clique(std::vector<int> clique, int vertex_to_insert)
@@ -364,7 +356,7 @@ int main()
         "san1000.clq", "sanr200_0.9.clq", "sanr400_0.7.clq",
     };
 
-    files = { "brock200_1.clq" };
+    files = { "brock200_2.clq" };
 
     std::ofstream fout("clique_class.csv");
     fout << "File; Clique; Time (sec)\n";
