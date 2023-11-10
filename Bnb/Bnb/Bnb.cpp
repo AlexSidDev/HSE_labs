@@ -50,23 +50,25 @@ class Graph
         int* sorted_verts = new int[verts];
         int min_pow;
         int min_ind;
+
+        std::vector<int> tmp_pows = pows;
         for (int i = 0; i < verts; i++)
         {
             min_ind = 0;
             min_pow = INT_MAX;
             for (int j = 0; j < verts; j++)
             {   
-                if (pows[j] < min_pow)
+                if (tmp_pows[j] < min_pow)
                 {
                     min_ind = j;
-                    min_pow = pows[j];
+                    min_pow = tmp_pows[j];
                 }
             }
             for (int neighbour : adjacency_list[min_ind])
             {
-                pows[neighbour]--;
+                tmp_pows[neighbour]--;
             }
-            pows[min_ind] = INT_MAX;
+            tmp_pows[min_ind] = INT_MAX;
             sorted_verts[verts - i - 1] = min_ind;
         }
         return sorted_verts;
@@ -155,7 +157,7 @@ public:
 
     int all_independent_sets(int* vertices_order, std::vector<std::unordered_set<int>>& independent_sets)
     {
-        independent_sets.reserve(verts * 100);
+        independent_sets.reserve(verts * verts);
 
         std::vector<int> all_verts{ vertices_order, vertices_order + verts };
 
@@ -191,17 +193,27 @@ public:
         return independent_sets.size();
     }
 
-    bool check_clique(std::vector<int> clique, int vertex_to_insert)
+    bool check_clique_candidate(const std::unordered_set<int>& clique, int vertex_to_insert)
     {
         bool is_dense = true;
 
-        for (int verts_in_clique : clique)
+        for (int vert_in_clique : clique)
         {
-            is_dense &= adjacency_list[verts_in_clique].find(vertex_to_insert) != adjacency_list[verts_in_clique].end();
+            is_dense &= (adjacency_list[vert_in_clique].find(vertex_to_insert) != adjacency_list[vert_in_clique].end()) || (vert_in_clique == vertex_to_insert);
             if (!is_dense)
                 break;
         }
         return is_dense;
+    }
+
+    bool check_clique(const std::unordered_set<int>& clique)
+    {
+        bool is_clique = true;
+        for (int vert : clique)
+        {
+            is_clique &= check_clique_candidate(clique, vert);
+        }
+        return is_clique;
     }
 
     int find_max_clique(int max_iters, int random_candidates)
@@ -209,8 +221,8 @@ public:
         int* sorted_verts = sort_verts();
         int cur_ver, start_vert, last_ind = 0, global_last_index = -1;
         bool is_dense;
-        std::vector<int> clique;
-        std::vector<int> best_clique;
+        std::unordered_set<int> clique;
+        std::unordered_set<int> best_clique;
         clique.reserve(verts);
         best_clique.reserve(verts);
 
@@ -227,7 +239,7 @@ public:
                 cur_ver = sorted_verts[i];
                 if (adjacency_list[cur_ver].size() + 1 <= best_clique.size())
                     continue;
-                is_dense = check_clique(clique, cur_ver);
+                is_dense = check_clique_candidate(clique, cur_ver);
                 if (is_dense)
                 {
                     if (candidate_iterations == 0)
@@ -241,7 +253,7 @@ public:
                 if (candidate_iterations == random_candidates)
                 {
                     start_vert = candidates[(std::rand() % random_candidates)];
-                    clique.push_back(start_vert);
+                    clique.insert(start_vert);
                     candidate_iterations = 0;
                     global_last_index = i;
                     i = last_ind;
@@ -262,7 +274,7 @@ public:
                 global_last_index = -1;
             } while (adjacency_list[start_vert].size() + 1 <= best_clique.size());
 
-            clique.push_back(start_vert);
+            clique.insert(start_vert);
         }
         return best_clique.size();
     }
@@ -278,6 +290,8 @@ class MaxCliqueBnBSolver
     IloEnv env;
     IloModel model;
     IloFloatVarArray x;
+    float upper_bound = 0;
+    int* sorted_verts;
 
 public:
     MaxCliqueBnBSolver(Graph* target_graph)
@@ -286,8 +300,8 @@ public:
         model = IloModel(env);
         x = IloFloatVarArray(env, graph->verts);
 
-        int* verts_in_order = graph->sort_verts();
-        int num_sets = graph->all_independent_sets(verts_in_order, *independent_sets);
+        sorted_verts = graph->sort_verts();
+        int num_sets = graph->all_independent_sets(sorted_verts, *independent_sets);
 
         std::cout << "Total number of constraints: " << num_sets << '\n';
         create_problem();
@@ -319,6 +333,82 @@ public:
         model.add(obj);
 
         expr.end();
+    }
+
+    void BnB_step()
+    {
+        IloCplex cplex(model);
+        double ans = -1;
+        if (cplex.solve()) {
+            ans = cplex.getObjValue();
+        }
+
+        if (ans > upper_bound)
+            upper_bound = ans;
+        else
+            return;
+
+        bool is_integer = true;
+        std::unordered_set<int> bounding_candidates;
+        bounding_candidates.reserve(graph->verts);
+
+        for (int i = 0; i < graph->verts; i++)
+        {
+            is_integer &= (abs(cplex.getValue(x[i]) - 1.0) < EPS || abs(cplex.getValue(x[i]) - 0.0) < EPS);
+
+            if (abs(cplex.getValue(x[i])) > 0.0 + EPS)
+                bounding_candidates.insert(i);
+        }
+
+        if (is_integer)
+        {
+            delete &bounding_candidates;
+
+            bool is_valid;
+            std::unordered_set<int> clique;
+            clique.reserve(int(upper_bound) + 1);
+            for (int i = 0; i < graph->verts; i++)
+            {
+                if (abs(cplex.getValue(x[i]) - 1.0) < EPS)
+                    clique.insert(i);
+            }
+            is_valid = graph->check_clique(clique);
+
+            delete &clique;
+
+            if (!is_valid)
+                throw std::runtime_error("Found clique is invalid!!!\n");
+        }
+        else
+        {
+            int best_candidate;
+            int cur_ver;
+            for (int i = 0; i < graph->verts; i++)
+            {
+                cur_ver = sorted_verts[i];
+                if (abs(cplex.getValue(x[cur_ver])) > 0.0 + EPS && bounding_candidates.find(cur_ver) != bounding_candidates.end())
+                {
+                    best_candidate = cur_ver;
+                    break;
+                }
+            }
+
+            int variants[] = { 1.0, 0.0 };
+            for (int var = 0; var < 2; var++)
+            {
+                IloRangeArray i_sets(env);
+                IloExpr expr(env);
+
+                expr += x[best_candidate];
+
+                i_sets.add(IloRange(env, variants[var], expr, variants[var]));
+
+                model.add(i_sets);
+                BnB_step();
+                model.remove(i_sets);
+            }
+        }
+
     }
 
     double solve()
@@ -356,7 +446,7 @@ int main()
         "san1000.clq", "sanr200_0.9.clq", "sanr400_0.7.clq",
     };
 
-    files = { "brock200_2.clq" };
+    files = { "brock200_1.clq" };
 
     std::ofstream fout("clique_class.csv");
     fout << "File; Clique; Time (sec)\n";
