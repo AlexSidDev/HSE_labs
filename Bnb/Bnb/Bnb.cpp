@@ -290,8 +290,9 @@ class MaxCliqueBnBSolver
     IloEnv env;
     IloModel model;
     IloFloatVarArray x;
-    float upper_bound = 0;
+    float upper_bound = -1;
     int* sorted_verts;
+    std::unordered_set<int> best_clique;
 
 public:
     MaxCliqueBnBSolver(Graph* target_graph)
@@ -338,31 +339,48 @@ public:
     void BnB_step()
     {
         IloCplex cplex(model);
+        cplex.setOut(env.getNullStream());
         double ans = -1;
         if (cplex.solve()) {
             ans = cplex.getObjValue();
         }
+        for (int i = 0; i < graph->verts; i++)
+        {
+            std::cout << cplex.getValue(x[i]) << ' ';
+        }
+        std::cout << '\n';
+        std::cout << '\n';
+        std::cout << '\n';
+        std::cout << '\n';
 
-        if (ans > upper_bound)
-            upper_bound = ans;
-        else
-            return;
-
-        bool is_integer = true;
         std::unordered_set<int> bounding_candidates;
         bounding_candidates.reserve(graph->verts);
 
+        int num_int_verts = 0;
+        bool is_integer = true, is_zero, is_one;
         for (int i = 0; i < graph->verts; i++)
         {
-            is_integer &= (abs(cplex.getValue(x[i]) - 1.0) < EPS || abs(cplex.getValue(x[i]) - 0.0) < EPS);
+            is_zero = abs(cplex.getValue(x[i]) - 0.0) < EPS;
+            is_one = abs(cplex.getValue(x[i]) - 1.0) < EPS;
 
-            if (abs(cplex.getValue(x[i])) > 0.0 + EPS)
+            if (!is_zero && !is_one)
                 bounding_candidates.insert(i);
+
+            num_int_verts += is_one;
+            is_integer &= (is_zero || is_one);
+        }
+
+        if (num_int_verts >= upper_bound)
+            upper_bound = num_int_verts;
+        else
+        {
+            cplex.end();
+            return;
         }
 
         if (is_integer)
         {
-            delete &bounding_candidates;
+            //delete &bounding_candidates;
 
             bool is_valid;
             std::unordered_set<int> clique;
@@ -373,11 +391,17 @@ public:
                     clique.insert(i);
             }
             is_valid = graph->check_clique(clique);
-
-            delete &clique;
-
             if (!is_valid)
-                throw std::runtime_error("Found clique is invalid!!!\n");
+                std::runtime_error("Found clique is invalid!!!\n");
+
+            if (clique.size() > best_clique.size())
+            {
+                best_clique = clique;
+            }
+            //delete &clique;
+            cplex.end();
+
+            
         }
         else
         {
@@ -392,6 +416,7 @@ public:
                     break;
                 }
             }
+            cplex.end();
 
             int variants[] = { 1.0, 0.0 };
             for (int var = 0; var < 2; var++)
@@ -408,26 +433,26 @@ public:
                 model.remove(i_sets);
             }
         }
-
     }
 
     double solve()
     {
-        IloCplex cplex(model);
-        cplex.setOut(env.getNullStream());
+        /*IloCplex cplex(model);
+        cplex.setOut(env.getNullStream());*/
 
-        double ans = -1;
+        /*double ans = -1;
         if (cplex.solve()) {
             ans = cplex.getObjValue();
-        }
+        }*/
+        BnB_step();
 
-        for (int i = 0; i < graph->verts; i++)
+       /* for (int i = 0; i < graph->verts; i++)
         {
             std::cout << cplex.getValue(x[i]) << ' ';
         }
         std::cout << '\n';
-        cplex.end();
-        return ans;
+        cplex.end();*/
+        return upper_bound;
     }
 };
 
