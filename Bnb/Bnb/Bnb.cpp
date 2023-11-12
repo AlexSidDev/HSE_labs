@@ -36,6 +36,7 @@ std::vector<int>* collection_difference(const std::vector<int>& first, const std
     return diff;
 }
 
+
 class MaxCliqueBnBSolver;
 
 
@@ -157,7 +158,7 @@ public:
 
     int all_independent_sets(int* vertices_order, std::vector<std::unordered_set<int>>& independent_sets)
     {
-        independent_sets.reserve(verts * verts);
+        independent_sets.reserve((verts * verts) / 2);
 
         std::vector<int> all_verts{ vertices_order, vertices_order + verts };
 
@@ -175,7 +176,8 @@ public:
         {
             std::vector<std::unordered_set<int>> divided_sets;
 
-            this->coloring(non_neighbourhood_sets->at(cur_ind).begin()._Ptr, divided_sets, non_neighbourhood_sets->at(cur_ind).size());
+            coloring(non_neighbourhood_sets->at(cur_ind).begin()._Ptr, divided_sets, non_neighbourhood_sets->at(cur_ind).size());
+
             for (auto& set : divided_sets)
             {
                 if (set.empty())
@@ -294,6 +296,30 @@ class MaxCliqueBnBSolver
     int* sorted_verts;
     std::unordered_set<int> best_clique;
 
+    bool process_solution(IloCplex& cplex, int& best_bounding_candidate, std::unordered_set<int>& clique)
+    {
+        int cur_ver;
+        bool is_integer = true, is_zero, is_one, is_best_found = false;
+        for (int i = 0; i < graph->verts; i++)
+        {
+            cur_ver = sorted_verts[i];
+            is_zero = abs(cplex.getValue(x[cur_ver]) - 0.0) < EPS;
+            is_one = abs(cplex.getValue(x[cur_ver]) - 1.0) < EPS;
+
+            if (!is_zero && !is_one && !is_best_found)
+            {
+                is_best_found = true;
+                best_bounding_candidate = cur_ver;
+            }
+
+            if (is_one)
+                clique.insert(i);
+
+            is_integer &= (is_zero || is_one);
+        }
+        return is_integer;
+    }
+
 public:
     MaxCliqueBnBSolver(Graph* target_graph)
     {
@@ -340,91 +366,41 @@ public:
     {
         IloCplex cplex(model);
         cplex.setOut(env.getNullStream());
+
         double ans = -1;
         if (cplex.solve()) {
             ans = cplex.getObjValue();
         }
-        for (int i = 0; i < graph->verts; i++)
+
+        int best_bounding_candidate;
+        std::unordered_set<int> clique;
+        clique.reserve(graph->verts);
+
+        bool is_integer = process_solution(cplex, best_bounding_candidate, clique);
+        cplex.end();
+
+        if (std::round(ans) <= upper_bound)
         {
-            std::cout << cplex.getValue(x[i]) << ' ';
-        }
-        std::cout << '\n';
-        std::cout << '\n';
-        std::cout << '\n';
-        std::cout << '\n';
-
-        std::unordered_set<int> bounding_candidates;
-        bounding_candidates.reserve(graph->verts);
-
-        int num_int_verts = 0;
-        bool is_integer = true, is_zero, is_one;
-        for (int i = 0; i < graph->verts; i++)
-        {
-            is_zero = abs(cplex.getValue(x[i]) - 0.0) < EPS;
-            is_one = abs(cplex.getValue(x[i]) - 1.0) < EPS;
-
-            if (!is_zero && !is_one)
-                bounding_candidates.insert(i);
-
-            num_int_verts += is_one;
-            is_integer &= (is_zero || is_one);
-        }
-
-        if (num_int_verts >= upper_bound)
-            upper_bound = num_int_verts;
-        else
-        {
-            cplex.end();
             return;
         }
-
-        if (is_integer)
+        else if (is_integer)
         {
-            //delete &bounding_candidates;
+            upper_bound = ans;
+            std::cout << "New answer: " << ans << '\n';
 
-            bool is_valid;
-            std::unordered_set<int> clique;
-            clique.reserve(int(upper_bound) + 1);
-            for (int i = 0; i < graph->verts; i++)
-            {
-                if (abs(cplex.getValue(x[i]) - 1.0) < EPS)
-                    clique.insert(i);
-            }
-            is_valid = graph->check_clique(clique);
-            if (!is_valid)
-                std::runtime_error("Found clique is invalid!!!\n");
-
-            if (clique.size() > best_clique.size())
-            {
-                best_clique = clique;
-            }
-            //delete &clique;
-            cplex.end();
-
-            
+            best_clique = clique;
+            clique.clear();
         }
         else
         {
-            int best_candidate;
-            int cur_ver;
-            for (int i = 0; i < graph->verts; i++)
-            {
-                cur_ver = sorted_verts[i];
-                if (abs(cplex.getValue(x[cur_ver])) > 0.0 + EPS && bounding_candidates.find(cur_ver) != bounding_candidates.end())
-                {
-                    best_candidate = cur_ver;
-                    break;
-                }
-            }
-            cplex.end();
 
-            int variants[] = { 1.0, 0.0 };
+            float variants[] = { 1.0, 0.0 };
             for (int var = 0; var < 2; var++)
             {
                 IloRangeArray i_sets(env);
                 IloExpr expr(env);
 
-                expr += x[best_candidate];
+                expr += x[best_bounding_candidate];
 
                 i_sets.add(IloRange(env, variants[var], expr, variants[var]));
 
@@ -437,21 +413,19 @@ public:
 
     double solve()
     {
-        /*IloCplex cplex(model);
-        cplex.setOut(env.getNullStream());*/
-
-        /*double ans = -1;
-        if (cplex.solve()) {
-            ans = cplex.getObjValue();
-        }*/
         BnB_step();
+        
+        bool is_valid = graph->check_clique(best_clique);
+        if (!is_valid)
+            std::runtime_error("Found clique is invalid!!!\n");
 
-       /* for (int i = 0; i < graph->verts; i++)
+        std::cout << "Clique: \n";
+        for (int i : best_clique)
         {
-            std::cout << cplex.getValue(x[i]) << ' ';
+            std::cout << i << ' ';
         }
         std::cout << '\n';
-        cplex.end();*/
+
         return upper_bound;
     }
 };
@@ -471,7 +445,7 @@ int main()
         "san1000.clq", "sanr200_0.9.clq", "sanr400_0.7.clq",
     };
 
-    files = { "brock200_1.clq" };
+    files = { "brock200_2.clq" };
 
     std::ofstream fout("clique_class.csv");
     fout << "File; Clique; Time (sec)\n";
