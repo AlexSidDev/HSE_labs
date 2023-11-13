@@ -111,6 +111,12 @@ public:
         }
     }
 
+    ~Graph()
+    {
+        pows.clear();
+        adjacency_list.clear();
+    }
+
     int coloring(const int* vertices_order, std::vector<std::unordered_set<int>>& color_classes, int num_verts)
     {
 
@@ -334,6 +340,14 @@ public:
         create_problem();
     }
 
+    ~MaxCliqueBnBSolver()
+    {
+        //delete graph;
+        independent_sets->clear();
+        best_clique.clear();
+        delete [] sorted_verts;
+    }
+
     void create_problem()
     {
         for (auto i = 0; i < graph->verts; ++i)
@@ -379,21 +393,21 @@ public:
         bool is_integer = process_solution(cplex, best_bounding_candidate, clique);
         cplex.end();
 
-        if (std::round(ans) <= upper_bound)
+        if (std::floor(ans + EPS) <= upper_bound)
         {
+            clique.clear();
             return;
         }
         else if (is_integer)
         {
             upper_bound = ans;
             std::cout << "New answer: " << ans << '\n';
-
             best_clique = clique;
             clique.clear();
         }
         else
         {
-
+            clique.clear();
             float variants[] = { 1.0, 0.0 };
             for (int var = 0; var < 2; var++)
             {
@@ -436,24 +450,35 @@ int main()
     std::srand(std::time(0));
 
     std::vector<std::string> files = {
-        "brock200_1.clq", "brock200_2.clq", "brock200_3.clq", "brock200_4.clq",
-        "brock400_1.clq", "brock400_2.clq", "brock400_3.clq", "brock400_4.clq",
-        "C125.9.clq", "gen200_p0.9_44.clq", "gen200_p0.9_55.clq",
-        "hamming8-4.clq", "johnson16-2-4.clq","johnson8-2-4.clq", "keller4.clq",
-        "MANN_a27.clq", "MANN_a9.clq",
-        "p_hat1000-1.clq", "p_hat1000-2.clq", "p_hat1500-1.clq", "p_hat300-3.clq", "p_hat500-3.clq",
-        "san1000.clq", "sanr200_0.9.clq", "sanr400_0.7.clq",
+       "brock200_2.clq", "brock200_1.clq", "brock200_3.clq", "brock200_4.clq",
+       "C125.9.clq", "gen200_p0.9_44.clq",
+       "keller4.clq",
+       "MANN_a27.clq", "MANN_a45.clq",
+       "p_hat300-1.clq", "p_hat300-2.clq", "p_hat300-3.clq",
+       "san200_0.7_2.clq", "san200_0.9_3.clq", "sanr200_0.7.clq",
     };
 
-    files = { "brock200_2.clq" };
+    /*std::vector<std::string> files = {
+       "brock200_2.clq", "brock200_3.clq",
+       "C125.9.clq", "gen200_p0.9_44.clq",
+       "keller4.clq",
+       "MANN_a27.clq", "MANN_a45.clq",
+       "p_hat300-1.clq",
+       "san200_0.7_2.clq",
+    };*/
 
-    std::ofstream fout("clique_class.csv");
+    //files = { "C125.9.clq" };
+
+    std::ofstream fout("clique_class.csv", std::ios_base::app);
     fout << "File; Clique; Time (sec)\n";
+    fout.close();
 
     int clique_size;
 
     for (std::string file : files)
     {
+        std::ofstream fout("clique_class.csv", std::ios_base::app);
+
         std::ifstream input_file("max_clique_txt/DIMACS_all_ascii/" + file);
         if (!input_file.is_open())
         {
@@ -470,6 +495,8 @@ int main()
         std::cout << "Largest clique: " << clique_size << '\n';
 
         fout << file << "; " << clique_size << "; " << duration.count() / 1000000.0 << '\n';
+
+        fout.close();
     }
 }
 
