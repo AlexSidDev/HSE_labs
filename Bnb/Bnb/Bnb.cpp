@@ -386,41 +386,45 @@ public:
             ans = cplex.getObjValue();
         }
 
-        int best_bounding_candidate;
-        std::unordered_set<int> clique;
-        clique.reserve(graph->verts);
-
-        bool is_integer = process_solution(cplex, best_bounding_candidate, clique);
-        cplex.end();
-
         if (std::floor(ans + EPS) <= upper_bound)
         {
-            clique.clear();
+            cplex.end();
             return;
         }
-        else if (is_integer)
+
+        int best_bounding_candidate;
+        std::unordered_set<int> clique;
+        clique.reserve(std::floor(ans + EPS));
+        bool is_integer = process_solution(cplex, best_bounding_candidate, clique);
+        cplex.end();
+        if (is_integer)
         {
             upper_bound = ans;
             std::cout << "New answer: " << ans << '\n';
+            std::cout << "++++++++++++++++++++++++++++++++++++++++++++++++" << '\n';
             best_clique = clique;
             clique.clear();
         }
         else
         {
+            std::cout << "Non-only-integer answer: " << ans << '\n';
             clique.clear();
             float variants[] = { 1.0, 0.0 };
+            IloRangeArray i_sets(env);
+            IloExpr expr(env);
+
+            expr += x[best_bounding_candidate];
             for (int var = 0; var < 2; var++)
             {
-                IloRangeArray i_sets(env);
-                IloExpr expr(env);
-
-                expr += x[best_bounding_candidate];
-
+                if (graph->pows[best_bounding_candidate] <= upper_bound && var == 0)
+                    continue;
+                
                 i_sets.add(IloRange(env, variants[var], expr, variants[var]));
 
                 model.add(i_sets);
                 BnB_step();
                 model.remove(i_sets);
+                i_sets.clear();
             }
         }
     }
@@ -449,27 +453,25 @@ int main()
 {
     std::srand(std::time(0));
 
-    std::vector<std::string> files = {
+    /*std::vector<std::string> files = {
        "brock200_2.clq", "brock200_1.clq", "brock200_3.clq", "brock200_4.clq",
        "C125.9.clq", "gen200_p0.9_44.clq",
        "keller4.clq",
        "MANN_a27.clq", "MANN_a45.clq",
        "p_hat300-1.clq", "p_hat300-2.clq", "p_hat300-3.clq",
        "san200_0.7_2.clq", "san200_0.9_3.clq", "sanr200_0.7.clq",
-    };
-
-    /*std::vector<std::string> files = {
-       "brock200_2.clq", "brock200_3.clq",
-       "C125.9.clq", "gen200_p0.9_44.clq",
-       "keller4.clq",
-       "MANN_a27.clq", "MANN_a45.clq",
-       "p_hat300-1.clq",
-       "san200_0.7_2.clq",
     };*/
 
-    //files = { "C125.9.clq" };
+    std::vector<std::string> files = {
+       //"keller4.clq",
+       //"MANN_a27.clq",
+       //"p_hat300-1.clq",
+       //"san200_0.7_2.clq",
+    };
 
-    std::ofstream fout("clique_class.csv", std::ios_base::app);
+    files = { "brock200_2.clq" };
+
+    std::ofstream fout("clique_2.csv", std::ios_base::app);
     fout << "File; Clique; Time (sec)\n";
     fout.close();
 
@@ -477,7 +479,7 @@ int main()
 
     for (std::string file : files)
     {
-        std::ofstream fout("clique_class.csv", std::ios_base::app);
+        std::ofstream fout("clique_2.csv", std::ios_base::app);
 
         std::ifstream input_file("max_clique_txt/DIMACS_all_ascii/" + file);
         if (!input_file.is_open())
