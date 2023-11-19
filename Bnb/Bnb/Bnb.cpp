@@ -469,7 +469,7 @@ int main()
        //"san200_0.7_2.clq",
     };
 
-    files = { "brock200_2.clq" };
+    files = { "keller4.clq" };
 
     std::ofstream fout("clique_2.csv", std::ios_base::app);
     fout << "File; Clique; Time (sec)\n";
