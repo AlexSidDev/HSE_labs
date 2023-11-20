@@ -5,6 +5,106 @@
 #include <map>
 #include <vector>
 
+struct node
+{
+    float key;
+    int height;
+    node* left;
+    node* right;
+
+    int get_height(const node* cur_node)
+    {
+        return cur_node ? cur_node->height : 0;
+    }
+
+    node(float k)
+    { 
+        key = k;
+        left = right = nullptr;
+        height = 1;
+    }
+
+    int balance_factor()
+    {
+        return abs(get_height(left) - get_height(right));
+    }
+
+    void update_height(node* cur_node)
+    {
+        cur_node->height = std::max(cur_node->left->height, cur_node->right->height);
+    }
+
+    node* rotate_left()
+    {
+        node* new_parent = this->right;
+        this->right = new_parent->left;
+        update_height(this);
+        new_parent->left = this;
+        update_height(new_parent);
+        return new_parent;
+    }
+
+    node* rotate_right()
+    {
+        node* new_parent = this->left;
+        this->left = new_parent->right;
+        update_height(this);
+        new_parent->right = this;
+        update_height(new_parent);
+        return new_parent;
+    }
+
+    node* balance()
+    {
+        if (this->left && this->left->balance_factor() > 1)
+            this->left = this->left->balance();
+        if (this->right && this->right->balance_factor() > 1)
+            this->right = this->right->balance();
+
+        node* new_node = this;
+        if (get_height(left) < get_height(right))
+        {
+            if (get_height(right->right) < get_height(right->left))
+                right = right->rotate_right();
+
+            new_node = rotate_left();
+        }
+        else if (get_height(left) > get_height(right))
+        {
+            if (get_height(left->right) < get_height(left->left))
+                left = left->rotate_left();
+
+            new_node = rotate_right();
+        }
+        return new_node;
+    }
+
+    void insert(float key)
+    {
+        node* child;
+        if (key > this->key)
+            child = this->right;
+        else
+            child = this->left;
+
+        if (child)
+        {
+            int old_height = child->height;
+            child->insert(key);
+            if (child->height > old_height)
+            {
+                this->height++;
+            }
+        }
+        else
+        {
+            child = new node(key);
+            this->height++;
+        }
+        balance();
+    }
+};
+
 struct Point
 {
     float x, y;
