@@ -31,10 +31,10 @@ struct node
 
     void update_height(node* cur_node)
     {
-        cur_node->height = std::max(cur_node->left->height, cur_node->right->height);
+        cur_node->height = 1 + std::max(get_height(cur_node->left), get_height(cur_node->right));
     }
 
-    node* rotate_left()
+    /*node* rotate_left()
     {
         node* new_parent = this->right;
         this->right = new_parent->left;
@@ -42,9 +42,32 @@ struct node
         new_parent->left = this;
         update_height(new_parent);
         return new_parent;
+    }*/
+
+    void rotate_left()
+    {
+        node* new_parent = this->right;
+        this->right = new_parent->right;
+        this->left = new node(*this);
+        this->left->right = new_parent->left;
+        update_height(this->left);
+        update_height(this);
+        this->key = new_parent->key;
     }
 
-    node* rotate_right()
+   void rotate_right()
+    {
+        node* new_parent = this->left;
+        this->left = new_parent->left;
+        this->right = new node(*this);
+
+        this->right->left = new_parent->right;
+        update_height(this->right);
+        update_height(this);
+        this->key = new_parent->key;
+    }
+
+    /*node* rotate_right()
     {
         node* new_parent = this->left;
         this->left = new_parent->right;
@@ -52,31 +75,27 @@ struct node
         new_parent->right = this;
         update_height(new_parent);
         return new_parent;
-    }
+    }*/
 
-    node* balance()
+    void balance()
     {
-        if (this->left && this->left->balance_factor() > 1)
-            this->left = this->left->balance();
-        if (this->right && this->right->balance_factor() > 1)
-            this->right = this->right->balance();
-
+        if (this->balance_factor() < 2)
+            return;
         node* new_node = this;
         if (get_height(left) < get_height(right))
         {
             if (get_height(right->right) < get_height(right->left))
-                right = right->rotate_right();
+                right->rotate_right();
 
-            new_node = rotate_left();
+            rotate_left();
         }
         else if (get_height(left) > get_height(right))
         {
-            if (get_height(left->right) < get_height(left->left))
-                left = left->rotate_left();
+            if (get_height(left->right) > get_height(left->left))
+                left->rotate_left();
 
-            new_node = rotate_right();
+            rotate_right();
         }
-        return new_node;
     }
 
     void insert(float key)
@@ -93,13 +112,20 @@ struct node
             child->insert(key);
             if (child->height > old_height)
             {
-                this->height++;
+                this->height += 1;
             }
         }
         else
         {
-            child = new node(key);
-            this->height++;
+            this->height += 1;
+            if (key > this->key)
+            {
+                this->right = new node(key);
+            }
+            else
+            {
+                this->left = new node(key);
+            }
         }
         balance();
     }
@@ -190,13 +216,18 @@ std::pair<int, int> naive_algorithm(const std::vector<Segment>& seqments)
 
 int main()
 {
-    Segment first(Point(1, 5), Point(4, 3));
-    Segment second(Point(1, 7), Point(3, 5));
-
-    std::vector<Segment> segments = { first , second };
-
-    std::pair<int, int> answer = naive_algorithm(segments);
-    std::cout << answer.first << "\t" << answer.second << '\n';
+    
+    node* tree_root = new node(7);
+    tree_root->insert(6);
+    tree_root->insert(5);
+    tree_root->insert(4);
+    tree_root->insert(3);
+    tree_root->insert(2);
+    tree_root->insert(1);
+    std::cout << tree_root->height << '\t' << tree_root->key << '\n';
+    
+    //std::pair<int, int> answer = naive_algorithm(segments);
+    //std::cout << answer.first << "\t" << answer.second << '\n';
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
