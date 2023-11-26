@@ -4,24 +4,103 @@
 #include <iostream>
 #include <map>
 #include <vector>
+#include <functional>
+#include <algorithm>
 
+struct Point
+{
+    float x, y;
+
+    Point(float x, float y)
+    {
+        this->x = x;
+        this->y = y;
+    }
+
+    Point()
+    {
+        this->x = 0.0;
+        this->y = 0.0;
+    }
+
+    bool operator<(const Point& other) const
+    {
+        if (this->x == other.x)
+            return this->y < other.y;
+        return this->x < other.x;
+    }
+};
+
+struct Segment
+{
+    Point first, last;
+
+    Segment(const Point first, const Point last)
+    {
+        this->first = first;
+        this->last = last;
+    }
+
+    Segment()
+    {
+        this->first = Point();
+        this->last = Point();
+    }
+
+    float get_left_y() const
+    {
+        if (this->first < this->last)
+            return this->first.y;
+        else
+            return this->last.y;
+    }
+
+    bool operator<(const Segment& other) const
+    {
+        return this->get_left_y() < other.get_left_y();
+    }
+
+    bool operator>(const Segment& other) const
+    {
+        return (this->get_left_y() > other.get_left_y());
+    }
+
+    bool operator==(const Segment& other) const
+    {
+        return (this->get_left_y() == other.get_left_y());
+    }
+};
+
+template<typename T>
 struct node
 {
-    float key;
+    T key;
     int height;
     node* left;
     node* right;
 
-    int get_height(const node* cur_node)
+    static int get_height(const node* cur_node)
     {
         return cur_node ? cur_node->height : 0;
     }
 
-    node(float k)
-    { 
+    node()
+    {
+        key = 0;
+        left = right = nullptr;
+        height = 1;
+    }
+
+    node(T k)
+    {
         key = k;
         left = right = nullptr;
         height = 1;
+    }
+
+    ~node()
+    {
+
     }
 
     int balance_factor()
@@ -29,53 +108,34 @@ struct node
         return abs(get_height(left) - get_height(right));
     }
 
-    void update_height(node* cur_node)
+    void update_height()
     {
-        cur_node->height = 1 + std::max(get_height(cur_node->left), get_height(cur_node->right));
+        this->height = 1 + std::max(get_height(this->left), get_height(this->right));
     }
-
-    /*node* rotate_left()
-    {
-        node* new_parent = this->right;
-        this->right = new_parent->left;
-        update_height(this);
-        new_parent->left = this;
-        update_height(new_parent);
-        return new_parent;
-    }*/
 
     void rotate_left()
     {
         node* new_parent = this->right;
         this->right = new_parent->right;
         this->left = new node(*this);
+
         this->left->right = new_parent->left;
-        update_height(this->left);
-        update_height(this);
+        this->left->update_height();
+        this->update_height();
         this->key = new_parent->key;
     }
 
-   void rotate_right()
+    void rotate_right()
     {
         node* new_parent = this->left;
         this->left = new_parent->left;
         this->right = new node(*this);
 
         this->right->left = new_parent->right;
-        update_height(this->right);
-        update_height(this);
+        this->right->update_height();
+        this->update_height();
         this->key = new_parent->key;
     }
-
-    /*node* rotate_right()
-    {
-        node* new_parent = this->left;
-        this->left = new_parent->right;
-        update_height(this);
-        new_parent->right = this;
-        update_height(new_parent);
-        return new_parent;
-    }*/
 
     void balance()
     {
@@ -98,7 +158,7 @@ struct node
         }
     }
 
-    void insert(float key)
+    node* insert(T key)
     {
         node* child;
         if (key > this->key)
@@ -121,47 +181,78 @@ struct node
             if (key > this->key)
             {
                 this->right = new node(key);
+                child = this->right;
             }
             else
             {
                 this->left = new node(key);
+                child = this->left;
             }
         }
         balance();
-    }
-};
-
-struct Point
-{
-    float x, y;
-
-    Point(float x, float y)
-    {
-        this->x = x;
-        this->y = y;
+        return child;
     }
 
-    Point()
+    void delete_key(T key)
     {
-        this->x = 0.0;
-        this->y = 0.0;
+        if (this->key > key)
+        {
+            this->left->delete_key(key);
+            if (this->left->key == key)
+                this->left = nullptr;
+        }
+        else if (this->key < key)
+        {
+            this->right->delete_key(key);
+            if (this->right->key == key)
+                this->right = nullptr;
+        }
+        else
+        {
+            node* child = nullptr;
+            if (this->left)
+                child = this->left;
+            if (this->right)
+                child = this->right;
+
+            if (this->left && this->right)
+            {
+                node* sub_tree_root = this->right;
+                while (sub_tree_root->left)
+                {
+                    sub_tree_root = sub_tree_root->left;
+                }
+                this->key = sub_tree_root->key;
+                this->right->delete_key(sub_tree_root->key);
+            }
+            else if (child != nullptr)
+            {
+                this->key = child->key;
+                this->left = child->left;
+                this->right = child->right;
+            }
+        }
+        update_height();
     }
-};
 
-struct Segment
-{
-    Point first, last;
-
-    Segment(const Point first, const Point last)
+    T get_previous()
     {
-        this->first = first;
-        this->last = last;
+        node* sub_tree_root = this->left;
+        while (sub_tree_root->right)
+        {
+            sub_tree_root = sub_tree_root->right;
+        }
+        return sub_tree_root;
     }
 
-    Segment()
+    T get_next()
     {
-        this->first = Point();
-        this->last = Point();
+        node* sub_tree_root = this->right;
+        while (sub_tree_root->left)
+        {
+            sub_tree_root = sub_tree_root->left;
+        }
+        return sub_tree_root;
     }
 };
 
@@ -214,20 +305,108 @@ std::pair<int, int> naive_algorithm(const std::vector<Segment>& seqments)
     return std::make_pair(first_ind, second_ind);
 }
 
+std::vector<std::pair<const Segment*, const Segment*>>* avl_tree_algorithm(const std::vector<Segment>& seqments)
+{
+    std::vector<std::pair<const Segment*, const Segment*>>* answer = new std::vector<std::pair<const Segment*, const Segment*>>();
+
+    std::vector<std::pair<const Point*, int>> all_points_and_segments;
+    all_points_and_segments.reserve(seqments.size() * 2);
+    for (const Segment& segment : seqments)
+    {
+        int cur_segment_ind = all_points_and_segments.size();
+        all_points_and_segments.push_back(std::make_pair(&segment.first, cur_segment_ind));
+        all_points_and_segments.push_back(std::make_pair(&segment.last, cur_segment_ind));
+    }
+
+    auto comporator = [](std::pair< Point*, int>& first, std::pair< Point*, int>& last) {
+        return first.first < last.first;
+    };
+    std::sort(all_points_and_segments.begin(), all_points_and_segments.end(), comporator);
+
+    node<const Segment*>* tree_root = new node<const Segment*>(&seqments[all_points_and_segments[0].second]);
+    
+    const Point* cur_point;
+    const Segment* cur_segment, *previous, *next;
+    node<const Segment*>* cur_node;
+
+    for (int ind = 1; ind < all_points_and_segments.size(); ind++)
+    {
+        cur_point = all_points_and_segments[0].first;
+        cur_segment = &seqments[all_points_and_segments[0].second];
+
+        float x_diff = cur_point->x - cur_segment->first.x + cur_point->x - cur_segment->last.x;
+        if (x_diff < 0 || (x_diff == 0 && cur_point->y - cur_segment->first.y + cur_point->y - cur_segment->last.y < 0))
+        {
+            cur_node = tree_root->insert(cur_segment);
+            previous = cur_node->get_previous();
+            next = cur_node->get_next();
+
+            if (is_intersect(*cur_segment, *previous))
+            {
+                answer->push_back(std::make_pair(cur_segment, previous));
+            }
+            if (is_intersect(*cur_segment, *next))
+            {
+                answer->push_back(std::make_pair(cur_segment, previous));
+            }
+        }
+        else
+        {
+            previous = cur_node->get_previous();
+            next = cur_node->get_next();
+
+            tree_root->delete_key(cur_segment);
+            if (is_intersect(*next, *previous))
+            {
+                answer->push_back(std::make_pair(next, previous));
+            }
+        }
+    }
+    return answer;
+}
+
+template <typename T>
+void print_tree(node<T>* root)
+{
+    std::vector<std::vector<float>> nodes_on_each_level;
+    int tree_height = node::get_height(root);
+    nodes_on_each_level.resize(tree_height);
+
+    std::function<void(node*, int)> dfs_step;
+    dfs_step = [&tree_height, &nodes_on_each_level, &dfs_step](node<T>* root, int height)
+    {
+        nodes_on_each_level[height].push_back(root->key);
+        height++;
+        if (root->left)
+            dfs_step(root->left, height);
+        if (root->right)
+            dfs_step(root->right, height);
+    };
+    dfs_step(root, 0);
+
+    for (const auto& level : nodes_on_each_level)
+    {
+        for (const auto& node_key : level)
+        {
+            std::cout << node_key << ' ';
+        }
+        std::cout << '\n';
+    }
+}
+
 int main()
 {
     
-    node* tree_root = new node(7);
+    /*node<int>* tree_root = new node<int>(7);
     tree_root->insert(6);
     tree_root->insert(5);
     tree_root->insert(4);
     tree_root->insert(3);
     tree_root->insert(2);
     tree_root->insert(1);
-    std::cout << tree_root->height << '\t' << tree_root->key << '\n';
     
-    //std::pair<int, int> answer = naive_algorithm(segments);
-    //std::cout << answer.first << "\t" << answer.second << '\n';
+    print_tree(tree_root);*/
+
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
