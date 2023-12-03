@@ -359,6 +359,42 @@ struct Tree
     }
 };
 
+std::vector<Segment>* generate_random_segments(int num_segments, int num_ranges,
+    int start_x = 0, int end_x = 100,
+    int start_y = 0, int end_y = 50,
+    int max_len = 10)
+{
+    float x_ratio = end_x - start_x;
+    std::vector<Segment>* segments = new std::vector<Segment>();
+    segments->reserve(num_ranges * num_segments * 2);
+
+    auto generate_segment = [&start_y, &end_y, &max_len](float start_x, float end_x) {
+        static int dirs[] = { -1, 1 };
+
+        float first_x = start_x + (end_x - start_x) * ((std::rand() % 100) / 100.0);
+        float first_y = start_y + (end_y - start_y) * ((std::rand() % 100) / 100.0);
+
+        float diff_y = dirs[std::rand() % 2] * (max_len * ((std::rand() % 100) / 100.0));
+        float last_y = first_y + diff_y;
+        float last_x = first_x + std::sqrt(max_len * max_len - diff_y * diff_y);
+
+        return Segment(Point(first_x, first_y), Point(last_x, last_y));
+    };
+
+    float half_range_len = (x_ratio / num_ranges) / 2.0;
+    float cur_range_start = start_x, cur_range_end = start_x + half_range_len;
+    while (cur_range_end < end_x)
+    {
+        for (int i = 0; i < num_segments; i++)
+        {
+            segments->push_back(generate_segment(cur_range_start, cur_range_end));
+        }
+        cur_range_start += half_range_len;
+        cur_range_end += half_range_len;
+    }
+    return segments;
+}
+
 std::pair<float, float> get_equation(const Segment& seg)
 {
     float k = (seg.first.y - seg.last.y) / (seg.first.x - seg.last.x);
@@ -467,7 +503,7 @@ std::vector<std::pair<const Segment*, const Segment*>>* avl_tree_algorithm(const
                 answer->push_back(std::make_pair(next, previous));
             }
         }
-        tree->check_tree();
+        //tree->check_tree();
     }
     return answer;
 }
@@ -503,7 +539,7 @@ void print_tree(node<T>* root)
 
 int main()
 {
-    std::vector<Segment> segments = { Segment(Point(11.84133401630779, 6.362186524422792), Point(15.18651604557676, 10.078334690340823)),
+    /*std::vector<Segment> segments = { Segment(Point(11.84133401630779, 6.362186524422792), Point(15.18651604557676, 10.078334690340823)),
                                  Segment(Point(29.70129460535119, 21.99951116440324), Point(30.952928519651138, 26.840318178174208)),
                                  Segment(Point(23.67718594521382, 15.934772863637846), Point(28.562210940131507, 14.868690878502807)),
                                  Segment(Point(27.593236552753847, 12.10216409569465), Point(29.32832769721218, 7.41287217468757)),
@@ -623,8 +659,9 @@ int main()
                                  Segment(Point(74.04729589976444, 31.15776528246136), Point(74.49220280482893, 26.177598834858834)),
                                  Segment(Point(64.05190355960124, 4.022314552128154), Point(67.65777256746718, 0.5585436737194871)),
                                  Segment(Point(75.11825669520884, 35.739442299997094), Point(75.81919350884866, 40.69006726895651))
-    };
-
+    };*/
+    
+    std::vector<Segment> segments = *generate_random_segments(12, 3);
     std::vector<std::chrono::microseconds> times;
     for (int i = 0; i < 100; i++)
     {
