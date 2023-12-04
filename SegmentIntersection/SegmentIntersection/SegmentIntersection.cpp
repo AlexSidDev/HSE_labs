@@ -366,15 +366,31 @@ std::vector<Segment>* generate_random_segments(int num_segments, int num_ranges,
     int start_y = 0, int end_y = 50,
     int max_len = 10)
 {
+    float total_num = num_segments * (num_ranges * 2 - 1);
+    float y_stride = (end_y - start_y) / total_num;
+    float cur_y = start_y;
+
+    std::vector<float> unique_y;
+    unique_y.reserve(total_num);
+
+    while (cur_y <= end_y)
+    {
+        unique_y.push_back(cur_y);
+        cur_y += y_stride;
+    }
+
+    std::random_shuffle(unique_y.begin(), unique_y.end());
+
     float x_ratio = end_x - start_x;
     std::vector<Segment>* segments = new std::vector<Segment>();
     segments->reserve(num_ranges * num_segments * 2);
 
-    auto generate_segment = [&start_y, &end_y, &max_len](float start_x, float end_x) {
+    int y_ind = 0;
+    auto generate_segment = [&y_ind, &unique_y, &max_len](float start_x, float end_x) {
         static int dirs[] = { -1, 1 };
 
         float first_x = start_x + (end_x - start_x) * ((std::rand() % 100) / 100.0);
-        float first_y = start_y + (end_y - start_y) * ((std::rand() % 100) / 100.0);
+        float first_y = unique_y[y_ind];
 
         float diff_x = dirs[std::rand() % 2] * (max_len * ((std::rand() % 100) / 100.0));
         float last_x = first_x + diff_x;
@@ -384,12 +400,13 @@ std::vector<Segment>* generate_random_segments(int num_segments, int num_ranges,
     };
 
     float half_range_len = (x_ratio / num_ranges) / 2.0;
-    float cur_range_start = start_x, cur_range_end = start_x + half_range_len;
+    float cur_range_start = start_x, cur_range_end = start_x + half_range_len * 2;
     while (cur_range_end < end_x)
     {
         for (int i = 0; i < num_segments; i++)
         {
             segments->push_back(generate_segment(cur_range_start, cur_range_end));
+            y_ind++;
         }
         cur_range_start += half_range_len;
         cur_range_end += half_range_len;
@@ -678,7 +695,7 @@ int main()
 
     for (int i = 0; i < 100; i++)
     {
-        std::vector<Segment> segments = *generate_random_segments(15, 3, 0, 200);
+        std::vector<Segment> segments = *generate_random_segments(20, 4, 0, 200);
 
         std::pair<const Segment*, const Segment*>* naive_answer, * answer;
         std::vector<std::chrono::microseconds> times;
