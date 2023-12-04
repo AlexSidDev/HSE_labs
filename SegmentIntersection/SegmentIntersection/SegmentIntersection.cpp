@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <chrono>
 #include <set>
+#include <iomanip>
+#include <ios>
 
 struct Point
 {
@@ -374,9 +376,9 @@ std::vector<Segment>* generate_random_segments(int num_segments, int num_ranges,
         float first_x = start_x + (end_x - start_x) * ((std::rand() % 100) / 100.0);
         float first_y = start_y + (end_y - start_y) * ((std::rand() % 100) / 100.0);
 
-        float diff_y = dirs[std::rand() % 2] * (max_len * ((std::rand() % 100) / 100.0));
-        float last_y = first_y + diff_y;
-        float last_x = first_x + std::sqrt(max_len * max_len - diff_y * diff_y);
+        float diff_x = dirs[std::rand() % 2] * (max_len * ((std::rand() % 100) / 100.0));
+        float last_x = first_x + diff_x;
+        float last_y = first_y + std::sqrt(max_len * max_len - diff_x * diff_x);
 
         return Segment(Point(first_x, first_y), Point(last_x, last_y));
     };
@@ -414,15 +416,13 @@ bool is_intersect(const Segment& first, const Segment& second)
     return is_on_both;
 }
 
-std::vector<std::pair<const Segment*, const Segment*>>* naive_algorithm(const std::vector<Segment>& seqments)
+std::pair<const Segment*, const Segment*>* naive_algorithm(const std::vector<Segment>& seqments)
 {
-    std::vector<std::pair<const Segment*, const Segment*>>* answer = new std::vector<std::pair<const Segment*, const Segment*>>();
-    answer->reserve(seqments.size() * 2);
+    std::pair<const Segment*, const Segment*>* answer{};
 
     size_t seqments_count = seqments.size();
     const Segment *current_segment, *candidate;
     bool is_intersection = false;
-    int first_ind = -1, second_ind = -1;
     for (int i = 0; i < seqments_count; i++)
     {
         current_segment = &seqments[i];
@@ -432,17 +432,22 @@ std::vector<std::pair<const Segment*, const Segment*>>* naive_algorithm(const st
             is_intersection = is_intersect(*current_segment, *candidate);
             if (is_intersection)
             {
-                answer->push_back(std::make_pair(current_segment, candidate));
+                answer = new std::pair<const Segment*, const Segment*>(current_segment, candidate);
+                break;
             }
+        }
+        if (is_intersection)
+        {
+            break;
         }
     }
     return answer;
 }
 
-std::vector<std::pair<const Segment*, const Segment*>>* avl_tree_algorithm(const std::vector<Segment>& seqments)
+std::pair<const Segment*, const Segment*>* avl_tree_algorithm(const std::vector<Segment>& seqments)
 {
-    std::vector<std::pair<const Segment*, const Segment*>>* answer = new std::vector<std::pair<const Segment*, const Segment*>>();
-    answer->reserve(seqments.size() * 2);
+    bool is_intersection = false;
+    std::pair<const Segment*, const Segment*>* answer{};
 
     std::vector<std::pair<const Point*, int>> all_points_and_segments;
     all_points_and_segments.reserve(seqments.size() * 2);
@@ -470,11 +475,6 @@ std::vector<std::pair<const Segment*, const Segment*>>* avl_tree_algorithm(const
         cur_point = all_points_and_segments[ind].first;
         cur_segment = &seqments[all_points_and_segments[ind].second];
 
-        if (int(cur_segment->first.x) == 32 && int(cur_segment->last.y) == 43)
-        {
-            std::cout << "";
-        }
-
         if (*cur_point < cur_segment->first || *cur_point < cur_segment->last)
         {
             tree->insert(cur_segment);
@@ -484,11 +484,13 @@ std::vector<std::pair<const Segment*, const Segment*>>* avl_tree_algorithm(const
 
             if (previous && is_intersect(*cur_segment, *previous))
             {
-                answer->push_back(std::make_pair(cur_segment, previous));
+                answer = new std::pair<const Segment*, const Segment*>(cur_segment, previous);
+                is_intersection = true;
             }
             if (next && is_intersect(*cur_segment, *next))
             {
-                answer->push_back(std::make_pair(cur_segment, next));
+                answer = new std::pair<const Segment*, const Segment*>(cur_segment, next);
+                is_intersection = true;
             }
         }
         else
@@ -500,10 +502,12 @@ std::vector<std::pair<const Segment*, const Segment*>>* avl_tree_algorithm(const
             tree->delete_key(cur_segment);
             if (next && previous && is_intersect(*next, *previous))
             {
-                answer->push_back(std::make_pair(next, previous));
+                answer = new std::pair<const Segment*, const Segment*>(next, previous);
+                is_intersection = true;
             }
         }
-        //tree->check_tree();
+        if (is_intersection)
+            break;
     }
     return answer;
 }
@@ -535,6 +539,16 @@ void print_tree(node<T>* root)
         }
         std::cout << '\n';
     }
+}
+
+void print_answer(std::pair<const Segment*, const Segment*>* answer)
+{
+    std::cout << "First segment: \n" << std::fixed;
+    std::cout << std::setprecision(5) << answer->first->first.x << " " << std::setprecision(5) << answer->first->first.y << '\t';
+    std::cout << std::setprecision(5) << answer->first->last.x << " " << std::setprecision(5) << answer->first->last.y << '\n';
+    std::cout << "Second segment: \n";
+    std::cout << std::setprecision(5) << answer->second->first.x << " " << std::setprecision(5) << answer->second->first.y << '\t';
+    std::cout << std::setprecision(5) << answer->second->last.x << " " << std::setprecision(5) << answer->second->last.y << '\n';
 }
 
 int main()
@@ -660,33 +674,50 @@ int main()
                                  Segment(Point(64.05190355960124, 4.022314552128154), Point(67.65777256746718, 0.5585436737194871)),
                                  Segment(Point(75.11825669520884, 35.739442299997094), Point(75.81919350884866, 40.69006726895651))
     };*/
-    
-    std::vector<Segment> segments = *generate_random_segments(12, 3);
-    std::vector<std::chrono::microseconds> times;
+    std::ios_base::fmtflags f(std::cout.flags());
+
     for (int i = 0; i < 100; i++)
     {
-        auto start = std::chrono::high_resolution_clock::now();
-        auto naive_answer = naive_algorithm(segments);
-        auto stop = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-        times.push_back(duration);
+        std::vector<Segment> segments = *generate_random_segments(15, 3, 0, 200);
+
+        std::pair<const Segment*, const Segment*>* naive_answer, * answer;
+        std::vector<std::chrono::microseconds> times;
+        for (int i = 0; i < 100; i++)
+        {
+            auto start = std::chrono::high_resolution_clock::now();
+            naive_answer = naive_algorithm(segments);
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+            times.push_back(duration);
+        }
+        std::sort(times.begin(), times.end());
+        std::cout << "Naive algorithm: " << times[50].count() / 1000000.0 << '\n';
+
+        times.clear();
+        for (int i = 0; i < 100; i++)
+        {
+            auto start = std::chrono::high_resolution_clock::now();
+            answer = avl_tree_algorithm(segments);
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+            times.push_back(duration);
+        }
+
+        std::sort(times.begin(), times.end());
+        std::cout << "AVL algorithm: " << times[50].count() / 1000000.0 << '\n';
+
+        std::cout << "Num segments: " << segments.size() << '\n';
+
+        if (naive_answer)
+            print_answer(naive_answer);
+        std::cout << "================================================\n";
+        if (answer)
+            print_answer(answer);
+
+        std::cout.flags(f);
+
+        std::cout << "\n\n\n";
     }
-    std::sort(times.begin(), times.end());
-    std::cout << "Naive algorithm: " << times[50].count() / 1000000.0 << '\n';
-
-    times.clear();
-    for (int i = 0; i < 100; i++)
-    {
-        auto start = std::chrono::high_resolution_clock::now();
-        auto answer = avl_tree_algorithm(segments);
-        auto stop = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-        times.push_back(duration);
-    }
-
-    std::sort(times.begin(), times.end());
-    std::cout << "AVL algorithm: " << times[50].count() / 1000000.0 << '\n';
-
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
