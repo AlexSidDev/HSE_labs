@@ -224,7 +224,7 @@ public:
         return is_clique;
     }
 
-    int find_max_clique(int max_iters, int random_candidates)
+    std::unordered_set<int> find_max_clique(int max_iters, int random_candidates)
     {
         int* sorted_verts = sort_verts();
         int cur_ver, start_vert, last_ind = 0, global_last_index = -1;
@@ -284,7 +284,7 @@ public:
 
             clique.insert(start_vert);
         }
-        return best_clique.size();
+        return best_clique;
     }
 
     friend class MaxCliqueBnBSolver;
@@ -385,7 +385,7 @@ public:
         if (cplex.solve()) {
             ans = cplex.getObjValue();
         }
-
+ 
         if (std::floor(ans + EPS) <= upper_bound)
         {
             cplex.end();
@@ -407,7 +407,7 @@ public:
         }
         else
         {
-            std::cout << "Non-only-integer answer: " << ans << '\n';
+            //std::cout << "Non-only-integer answer: " << ans << '\n';
             clique.clear();
             float variants[] = { 1.0, 0.0 };
             IloRangeArray i_sets(env);
@@ -431,6 +431,8 @@ public:
 
     double solve()
     {
+        best_clique = graph->find_max_clique(10000, 1);
+        upper_bound = best_clique.size();
         BnB_step();
         
         bool is_valid = graph->check_clique(best_clique);
@@ -471,7 +473,9 @@ int main()
 
     files = { "keller4.clq" };
 
-    std::ofstream fout("clique_2.csv", std::ios_base::app);
+    std::string out_file = "clique_new.csv";
+
+    std::ofstream fout(out_file, std::ios_base::app);
     fout << "File; Clique; Time (sec)\n";
     fout.close();
 
@@ -479,7 +483,7 @@ int main()
 
     for (std::string file : files)
     {
-        std::ofstream fout("clique_2.csv", std::ios_base::app);
+        std::ofstream fout(out_file, std::ios_base::app);
 
         std::ifstream input_file("max_clique_txt/DIMACS_all_ascii/" + file);
         if (!input_file.is_open())
