@@ -36,6 +36,15 @@ std::vector<int>* collection_difference(const std::vector<int>& first, const std
     return diff;
 }
 
+bool is_subset(const std::unordered_set<int>& first, const std::unordered_set<int>& second)
+{
+    int counter = 0;
+    for (auto& item : first)
+    {
+        counter += second.find(item) != second.end();
+    }
+    return counter == std::min(first.size(), second.size());
+}
 
 class MaxCliqueBnBSolver;
 
@@ -166,6 +175,9 @@ public:
     {
         independent_sets.reserve((verts * verts) / 2);
 
+        std::vector<std::unordered_set<int>> non_unique_sets;
+        non_unique_sets.reserve((verts * verts) / 2);
+
         std::vector<int> all_verts{ vertices_order, vertices_order + verts };
 
         std::vector<std::vector<int>>* non_neighbourhood_sets = new std::vector<std::vector<int>>();
@@ -194,8 +206,36 @@ public:
                 tmp_set.insert(cur_ind);
                 tmp_set.insert(set.begin(), set.end());
 
-                independent_sets.push_back(tmp_set);
+                non_unique_sets.push_back(tmp_set);
             }
+        }
+
+        std::unordered_set<int> non_uniques;
+        non_uniques.reserve(non_unique_sets.size());
+        for (int i = 0; i < non_unique_sets.size(); i++)
+        {
+            bool is_unique = true;
+            if (non_uniques.find(i) != non_uniques.end())
+                continue;
+            for (int j = i + 1; j < non_unique_sets.size(); j++)
+            {
+                bool is_sub = is_subset(non_unique_sets[i], non_unique_sets[j]);
+                if (is_sub)
+                {
+                    if (non_unique_sets[i].size() >= non_unique_sets[j].size())
+                    {
+                        non_uniques.insert(j);
+                    }
+                    else
+                    {
+                        non_uniques.insert(i);
+                        is_unique = false;
+                        break;
+                    }
+                }    
+            }
+            if (is_unique)
+                independent_sets.push_back(non_unique_sets[i]);
         }
 
         return independent_sets.size();
@@ -455,25 +495,22 @@ int main()
 {
     std::srand(std::time(0));
 
-    /*std::vector<std::string> files = {
-       "brock200_2.clq", "brock200_1.clq", "brock200_3.clq", "brock200_4.clq",
-       "C125.9.clq", "gen200_p0.9_44.clq",
-       "keller4.clq",
-       "MANN_a27.clq", "MANN_a45.clq",
-       "p_hat300-1.clq", "p_hat300-2.clq", "p_hat300-3.clq",
-       "san200_0.7_2.clq", "san200_0.9_3.clq", "sanr200_0.7.clq",
-    };*/
+    //std::vector<std::string> files = {
+    //   //"brock200_1.clq", //"brock200_3.clq",
+    //    //"gen200_p0.9_44.clq",
+    //   //"keller4.clq",
+    //   "MANN_a27.clq",// "MANN_a45.clq",
+    //   //"p_hat300-2.clq", "p_hat300-3.clq",
+    //   //"san200_0.9_3.clq", 
+    //   //"sanr200_0.7.clq",
+    //};
 
     std::vector<std::string> files = {
-       //"keller4.clq",
-       //"MANN_a27.clq",
-       //"p_hat300-1.clq",
-       //"san200_0.7_2.clq",
+       "MANN_a27.clq",
+
     };
 
-    files = { "keller4.clq" };
-
-    std::string out_file = "clique_new.csv";
+    std::string out_file = "clique_last_today.csv";
 
     std::ofstream fout(out_file, std::ios_base::app);
     fout << "File; Clique; Time (sec)\n";

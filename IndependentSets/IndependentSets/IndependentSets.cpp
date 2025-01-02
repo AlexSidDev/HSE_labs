@@ -205,12 +205,10 @@ public:
             starts++;
             candidate_iterations = 0;
             clique.clear();
-            //do
-            //{
-                rand_ind = std::rand() % (verts / 2);
-                start_vert = sorted_verts[rand_ind];
-                global_last_index = -1;
-            //} while (adjacency_list[start_vert].size() + 1 <= best_clique.size());
+
+            rand_ind = std::rand() % (verts / 2);
+            start_vert = sorted_verts[rand_ind];
+            global_last_index = -1;
 
             clique.push_back(start_vert);
             weights_sum = weights[start_vert];
@@ -236,7 +234,6 @@ public:
 
 int main()
 {
-    //std::string file = "max_clique_txt/DIMACS_all_ascii/brock200_1.clq";
     std::srand(std::time(0));
 
     std::vector<std::string> files = {
